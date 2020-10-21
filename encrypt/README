@@ -1,0 +1,33 @@
+This is Ken's bignum program, but it has extra features:  It supports modular exponentation and has a built-in RSA key pair, enabling it to do 512-bit RSA encryption and decryption.
+
+Run compile.sh to build the application.  It will be called bignum.
+
+The API is the same as from homework1, but this version supports additional functionality, namely ^ (modular exponentation), e (encrypt lines of input) and d (decrypt encrypted input).
+
+For example:
+
+    bignum e
+    some sort of text
+
+will produce two lines of bignum output, encrypting "some sort of text" as a number.  There are two encryption outputs per line, because some lines are too large for a single 512-bit
+encryption).  A really long line will be truncated and only the prefix that fits into two chunks of encrypted output will be processed.  If the encryption fits on one line, the encryption
+of the second line will always be 0.  This is a bit insecure (it reveals that the line was short), but speeds things up.
+
+    bignum e < one-liners
+
+will read a file of famous movie one-liners and output encypted versions (again, with two encryption outputs per line).
+
+    bignum e | bignum d
+    some sort of text
+
+will encrypt what you typed, pipe the two lines of encryption output into a second instance of bignum, and decrypt it.  You should see what you typed, unless the line was much too long,
+in which case you would see only the first part of it.  You'll notice that it runs faster for short lines than long ones, for the reason explained above.  Even so, decryption is quite a
+bit slower than encryption.  This is the main focus of homework 2.
+
+    bignum e < one-liners > one-liners.enc
+
+will encrypt the contents of the file and save the output in one-liners.enc.  Then
+
+    bignum d < one-liners.enc
+
+will decrypt and print all the data.

@@ -1,0 +1,272 @@
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  ms/call  ms/call  name    
+ 38.88      1.69     1.69  1085997     0.00     0.00  Bignum::operator-(Bignum)
+ 21.62      2.63     0.94 148587078     0.00     0.00  __gnu_cxx::__normal_iterator<int*, std::vector<int, std::allocator<int> > > std::vector<int, std::allocator<int> >::_M_emplace_aux<int&>(__gnu_cxx::__normal_iterator<int const*, std::vector<int, std::allocator<int> > >, int&)
+ 17.02      3.37     0.74  1057514     0.00     0.00  Bignum::operator*(int)
+ 15.87      4.06     0.69   529593     0.00     0.00  Bignum::operator+(Bignum)
+  2.99      4.19     0.13 13455918     0.00     0.00  void std::vector<int, std::allocator<int> >::_M_realloc_insert<int>(__gnu_cxx::__normal_iterator<int*, std::vector<int, std::allocator<int> > >, int&&)
+  2.76      4.31     0.12 11610762     0.00     0.00  std::vector<int, std::allocator<int> >::operator=(std::vector<int, std::allocator<int> > const&)
+  0.46      4.33     0.02   554217     0.00     0.00  void std::vector<int, std::allocator<int> >::_M_realloc_insert<int const&>(__gnu_cxx::__normal_iterator<int*, std::vector<int, std::allocator<int> > >, int const&)
+  0.23      4.34     0.01   272039     0.00     0.00  Bignum::operator==(Bignum)
+  0.23      4.35     0.01     4256     0.00     0.38  Bignum::operator*(Bignum)
+  0.00      4.35     0.00   304296     0.00     0.00  Bignum::Bignum(Bignum const&)
+  0.00      4.35     0.00    34166     0.00     0.00  __gnu_cxx::__normal_iterator<char const*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > std::__find_if<__gnu_cxx::__normal_iterator<char const*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > >, __gnu_cxx::__ops::_Iter_negate<bool (*)(char)> >(__gnu_cxx::__normal_iterator<char const*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > >, __gnu_cxx::__normal_iterator<char const*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > >, __gnu_cxx::__ops::_Iter_negate<bool (*)(char)>, std::random_access_iterator_tag)
+  0.00      4.35     0.00     4032     0.00     0.68  Bignum::operator/(Bignum)
+  0.00      4.35     0.00     2128     0.00     1.06  Bignum::operator%(Bignum)
+  0.00      4.35     0.00      112     0.00    38.87  Bignum::expmod(Bignum, Bignum)
+  0.00      4.35     0.00      112     0.00     0.00  Bignum::to_string[abi:cxx11]()
+  0.00      4.35     0.00        1     0.00     0.00  _GLOBAL__sub_I__Z3opsB5cxx11
+  0.00      4.35     0.00        1     0.00     0.00  _GLOBAL__sub_I__ZN6BignumC2Ev
+
+ %         the percentage of the total running time of the
+time       program used by this function.
+
+cumulative a running sum of the number of seconds accounted
+ seconds   for by this function and those listed above it.
+
+ self      the number of seconds accounted for by this
+seconds    function alone.  This is the major sort for this
+           listing.
+
+calls      the number of times this function was invoked, if
+           this function is profiled, else blank.
+
+ self      the average number of milliseconds spent in this
+ms/call    function per call, if this function is profiled,
+	   else blank.
+
+ total     the average number of milliseconds spent in this
+ms/call    function and its descendents per call, if this
+	   function is profiled, else blank.
+
+name       the name of the function.  This is the minor sort
+           for this listing. The index shows the location of
+	   the function in the gprof listing. If the index is
+	   in parenthesis it shows where it would appear in
+	   the gprof listing if it were to be printed.
+
+Copyright (C) 2012-2020 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
+
+		     Call graph (explanation follows)
+
+
+granularity: each sample hit covers 2 byte(s) for 0.23% of 4.35 seconds
+
+index % time    self  children    called     name
+                                                 <spontaneous>
+[1]    100.0    0.00    4.35                 Bignum::encrypt(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) [1]
+                0.00    4.35     112/112         Bignum::expmod(Bignum, Bignum) [2]
+                0.00    0.00    2456/13455918     void std::vector<int, std::allocator<int> >::_M_realloc_insert<int>(__gnu_cxx::__normal_iterator<int*, std::vector<int, std::allocator<int> > >, int&&) [10]
+                0.00    0.00     112/112         Bignum::to_string[abi:cxx11]() [25]
+-----------------------------------------------
+                0.00    4.35     112/112         Bignum::encrypt(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) [1]
+[2]    100.0    0.00    4.35     112         Bignum::expmod(Bignum, Bignum) [2]
+                0.00    2.26    2128/2128        Bignum::operator%(Bignum) [5]
+                0.00    1.30    1904/4032        Bignum::operator/(Bignum) [3]
+                0.01    0.80    2128/4256        Bignum::operator*(Bignum) [6]
+                0.00    0.00   14000/11610762     std::vector<int, std::allocator<int> >::operator=(std::vector<int, std::allocator<int> > const&) [11]
+                0.00    0.00    2128/554217      void std::vector<int, std::allocator<int> >::_M_realloc_insert<int const&>(__gnu_cxx::__normal_iterator<int*, std::vector<int, std::allocator<int> > >, int const&) [12]
+                0.00    0.00     112/272039      Bignum::operator==(Bignum) [13]
+                0.00    0.00     784/304296      Bignum::Bignum(Bignum const&) [23]
+-----------------------------------------------
+                0.00    1.30    1904/4032        Bignum::expmod(Bignum, Bignum) [2]
+                0.00    1.45    2128/4032        Bignum::operator%(Bignum) [5]
+[3]     63.0    0.00    2.74    4032         Bignum::operator/(Bignum) [3]
+                1.69    0.97 1083869/1085997     Bignum::operator-(Bignum) [4]
+                0.07    0.00 6638374/11610762     std::vector<int, std::allocator<int> >::operator=(std::vector<int, std::allocator<int> > const&) [11]
+                0.01    0.01  271927/272039      Bignum::operator==(Bignum) [13]
+                0.00    0.00   36529/554217      void std::vector<int, std::allocator<int> >::_M_realloc_insert<int const&>(__gnu_cxx::__normal_iterator<int*, std::vector<int, std::allocator<int> > >, int const&) [12]
+                0.00    0.00  300357/304296      Bignum::Bignum(Bignum const&) [23]
+-----------------------------------------------
+                0.00    0.00    2128/1085997     Bignum::operator%(Bignum) [5]
+                1.69    0.97 1083869/1085997     Bignum::operator/(Bignum) [3]
+[4]     61.2    1.69    0.97 1085997         Bignum::operator-(Bignum) [4]
+                0.94    0.00 148587078/148587078     __gnu_cxx::__normal_iterator<int*, std::vector<int, std::allocator<int> > > std::vector<int, std::allocator<int> >::_M_emplace_aux<int&>(__gnu_cxx::__normal_iterator<int const*, std::vector<int, std::allocator<int> > >, int&) [7]
+                0.02    0.00 2168839/11610762     std::vector<int, std::allocator<int> >::operator=(std::vector<int, std::allocator<int> > const&) [11]
+                0.01    0.00  963214/13455918     void std::vector<int, std::allocator<int> >::_M_realloc_insert<int>(__gnu_cxx::__normal_iterator<int*, std::vector<int, std::allocator<int> > >, int&&) [10]
+                0.00    0.00    3155/304296      Bignum::Bignum(Bignum const&) [23]
+-----------------------------------------------
+                0.00    2.26    2128/2128        Bignum::expmod(Bignum, Bignum) [2]
+[5]     51.8    0.00    2.26    2128         Bignum::operator%(Bignum) [5]
+                0.00    1.45    2128/4032        Bignum::operator/(Bignum) [3]
+                0.01    0.80    2128/4256        Bignum::operator*(Bignum) [6]
+                0.00    0.00    2128/1085997     Bignum::operator-(Bignum) [4]
+                0.00    0.00    4256/11610762     std::vector<int, std::allocator<int> >::operator=(std::vector<int, std::allocator<int> > const&) [11]
+-----------------------------------------------
+                0.01    0.80    2128/4256        Bignum::operator%(Bignum) [5]
+                0.01    0.80    2128/4256        Bignum::expmod(Bignum, Bignum) [2]
+[6]     36.8    0.01    1.59    4256         Bignum::operator*(Bignum) [6]
+                0.74    0.09 1057514/1057514     Bignum::operator*(int) [8]
+                0.69    0.06  529593/529593      Bignum::operator+(Bignum) [9]
+                0.01    0.00 1187046/11610762     std::vector<int, std::allocator<int> >::operator=(std::vector<int, std::allocator<int> > const&) [11]
+-----------------------------------------------
+                0.94    0.00 148587078/148587078     Bignum::operator-(Bignum) [4]
+[7]     21.6    0.94    0.00 148587078         __gnu_cxx::__normal_iterator<int*, std::vector<int, std::allocator<int> > > std::vector<int, std::allocator<int> >::_M_emplace_aux<int&>(__gnu_cxx::__normal_iterator<int const*, std::vector<int, std::allocator<int> > >, int&) [7]
+-----------------------------------------------
+                0.74    0.09 1057514/1057514     Bignum::operator*(Bignum) [6]
+[8]     19.2    0.74    0.09 1057514         Bignum::operator*(int) [8]
+                0.08    0.00 8665646/13455918     void std::vector<int, std::allocator<int> >::_M_realloc_insert<int>(__gnu_cxx::__normal_iterator<int*, std::vector<int, std::allocator<int> > >, int&&) [10]
+                0.01    0.00 1057514/11610762     std::vector<int, std::allocator<int> >::operator=(std::vector<int, std::allocator<int> > const&) [11]
+-----------------------------------------------
+                0.69    0.06  529593/529593      Bignum::operator*(Bignum) [6]
+[9]     17.1    0.69    0.06  529593         Bignum::operator+(Bignum) [9]
+                0.04    0.00 3824115/13455918     void std::vector<int, std::allocator<int> >::_M_realloc_insert<int>(__gnu_cxx::__normal_iterator<int*, std::vector<int, std::allocator<int> > >, int&&) [10]
+                0.02    0.00  515505/554217      void std::vector<int, std::allocator<int> >::_M_realloc_insert<int const&>(__gnu_cxx::__normal_iterator<int*, std::vector<int, std::allocator<int> > >, int const&) [12]
+-----------------------------------------------
+                0.00    0.00     487/13455918     Bignum::Bignum(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) [14]
+                0.00    0.00    2456/13455918     Bignum::encrypt(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) [1]
+                0.01    0.00  963214/13455918     Bignum::operator-(Bignum) [4]
+                0.04    0.00 3824115/13455918     Bignum::operator+(Bignum) [9]
+                0.08    0.00 8665646/13455918     Bignum::operator*(int) [8]
+[10]     3.0    0.13    0.00 13455918         void std::vector<int, std::allocator<int> >::_M_realloc_insert<int>(__gnu_cxx::__normal_iterator<int*, std::vector<int, std::allocator<int> > >, int&&) [10]
+-----------------------------------------------
+                0.00    0.00    4256/11610762     Bignum::operator%(Bignum) [5]
+                0.00    0.00   14000/11610762     Bignum::expmod(Bignum, Bignum) [2]
+                0.01    0.00  540733/11610762     Bignum::operator==(Bignum) [13]
+                0.01    0.00 1057514/11610762     Bignum::operator*(int) [8]
+                0.01    0.00 1187046/11610762     Bignum::operator*(Bignum) [6]
+                0.02    0.00 2168839/11610762     Bignum::operator-(Bignum) [4]
+                0.07    0.00 6638374/11610762     Bignum::operator/(Bignum) [3]
+[11]     2.8    0.12    0.00 11610762         std::vector<int, std::allocator<int> >::operator=(std::vector<int, std::allocator<int> > const&) [11]
+-----------------------------------------------
+                0.00    0.00      55/554217      Bignum::Bignum(int) [15]
+                0.00    0.00    2128/554217      Bignum::expmod(Bignum, Bignum) [2]
+                0.00    0.00   36529/554217      Bignum::operator/(Bignum) [3]
+                0.02    0.00  515505/554217      Bignum::operator+(Bignum) [9]
+[12]     0.5    0.02    0.00  554217         void std::vector<int, std::allocator<int> >::_M_realloc_insert<int const&>(__gnu_cxx::__normal_iterator<int*, std::vector<int, std::allocator<int> > >, int const&) [12]
+-----------------------------------------------
+                0.00    0.00     112/272039      Bignum::expmod(Bignum, Bignum) [2]
+                0.01    0.01  271927/272039      Bignum::operator/(Bignum) [3]
+[13]     0.4    0.01    0.01  272039         Bignum::operator==(Bignum) [13]
+                0.01    0.00  540733/11610762     std::vector<int, std::allocator<int> >::operator=(std::vector<int, std::allocator<int> > const&) [11]
+-----------------------------------------------
+                                                 <spontaneous>
+[14]     0.0    0.00    0.00                 Bignum::Bignum(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) [14]
+                0.00    0.00     487/13455918     void std::vector<int, std::allocator<int> >::_M_realloc_insert<int>(__gnu_cxx::__normal_iterator<int*, std::vector<int, std::allocator<int> > >, int&&) [10]
+-----------------------------------------------
+                                                 <spontaneous>
+[15]     0.0    0.00    0.00                 Bignum::Bignum(int) [15]
+                0.00    0.00      55/554217      void std::vector<int, std::allocator<int> >::_M_realloc_insert<int const&>(__gnu_cxx::__normal_iterator<int*, std::vector<int, std::allocator<int> > >, int const&) [12]
+-----------------------------------------------
+                0.00    0.00     784/304296      Bignum::expmod(Bignum, Bignum) [2]
+                0.00    0.00    3155/304296      Bignum::operator-(Bignum) [4]
+                0.00    0.00  300357/304296      Bignum::operator/(Bignum) [3]
+[23]     0.0    0.00    0.00  304296         Bignum::Bignum(Bignum const&) [23]
+-----------------------------------------------
+                0.00    0.00   34166/34166       Bignum::to_string[abi:cxx11]() [25]
+[24]     0.0    0.00    0.00   34166         __gnu_cxx::__normal_iterator<char const*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > std::__find_if<__gnu_cxx::__normal_iterator<char const*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > >, __gnu_cxx::__ops::_Iter_negate<bool (*)(char)> >(__gnu_cxx::__normal_iterator<char const*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > >, __gnu_cxx::__normal_iterator<char const*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > >, __gnu_cxx::__ops::_Iter_negate<bool (*)(char)>, std::random_access_iterator_tag) [24]
+-----------------------------------------------
+                0.00    0.00     112/112         Bignum::encrypt(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) [1]
+[25]     0.0    0.00    0.00     112         Bignum::to_string[abi:cxx11]() [25]
+                0.00    0.00   34166/34166       __gnu_cxx::__normal_iterator<char const*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > std::__find_if<__gnu_cxx::__normal_iterator<char const*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > >, __gnu_cxx::__ops::_Iter_negate<bool (*)(char)> >(__gnu_cxx::__normal_iterator<char const*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > >, __gnu_cxx::__normal_iterator<char const*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > >, __gnu_cxx::__ops::_Iter_negate<bool (*)(char)>, std::random_access_iterator_tag) [24]
+-----------------------------------------------
+                0.00    0.00       1/1           __libc_csu_init [46]
+[26]     0.0    0.00    0.00       1         _GLOBAL__sub_I__Z3opsB5cxx11 [26]
+-----------------------------------------------
+                0.00    0.00       1/1           __libc_csu_init [46]
+[27]     0.0    0.00    0.00       1         _GLOBAL__sub_I__ZN6BignumC2Ev [27]
+-----------------------------------------------
+
+ This table describes the call tree of the program, and was sorted by
+ the total amount of time spent in each function and its children.
+
+ Each entry in this table consists of several lines.  The line with the
+ index number at the left hand margin lists the current function.
+ The lines above it list the functions that called this function,
+ and the lines below it list the functions this one called.
+ This line lists:
+     index	A unique number given to each element of the table.
+		Index numbers are sorted numerically.
+		The index number is printed next to every function name so
+		it is easier to look up where the function is in the table.
+
+     % time	This is the percentage of the `total' time that was spent
+		in this function and its children.  Note that due to
+		different viewpoints, functions excluded by options, etc,
+		these numbers will NOT add up to 100%.
+
+     self	This is the total amount of time spent in this function.
+
+     children	This is the total amount of time propagated into this
+		function by its children.
+
+     called	This is the number of times the function was called.
+		If the function called itself recursively, the number
+		only includes non-recursive calls, and is followed by
+		a `+' and the number of recursive calls.
+
+     name	The name of the current function.  The index number is
+		printed after it.  If the function is a member of a
+		cycle, the cycle number is printed between the
+		function's name and the index number.
+
+
+ For the function's parents, the fields have the following meanings:
+
+     self	This is the amount of time that was propagated directly
+		from the function into this parent.
+
+     children	This is the amount of time that was propagated from
+		the function's children into this parent.
+
+     called	This is the number of times this parent called the
+		function `/' the total number of times the function
+		was called.  Recursive calls to the function are not
+		included in the number after the `/'.
+
+     name	This is the name of the parent.  The parent's index
+		number is printed after it.  If the parent is a
+		member of a cycle, the cycle number is printed between
+		the name and the index number.
+
+ If the parents of the function cannot be determined, the word
+ `<spontaneous>' is printed in the `name' field, and all the other
+ fields are blank.
+
+ For the function's children, the fields have the following meanings:
+
+     self	This is the amount of time that was propagated directly
+		from the child into the function.
+
+     children	This is the amount of time that was propagated from the
+		child's children to the function.
+
+     called	This is the number of times the function called
+		this child `/' the total number of times the child
+		was called.  Recursive calls by the child are not
+		listed in the number after the `/'.
+
+     name	This is the name of the child.  The child's index
+		number is printed after it.  If the child is a
+		member of a cycle, the cycle number is printed
+		between the name and the index number.
+
+ If there are any cycles (circles) in the call graph, there is an
+ entry for the cycle-as-a-whole.  This entry shows who called the
+ cycle (as parents) and the members of the cycle (as children.)
+ The `+' recursive calls entry shows the number of function calls that
+ were internal to the cycle, and the calls entry for each member shows,
+ for that member, how many times it was called from other members of
+ the cycle.
+
+Copyright (C) 2012-2020 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
+
+Index by function name
+
+  [26] _GLOBAL__sub_I__Z3opsB5cxx11 [13] Bignum::operator==(Bignum) [7] __gnu_cxx::__normal_iterator<int*, std::vector<int, std::allocator<int> > > std::vector<int, std::allocator<int> >::_M_emplace_aux<int&>(__gnu_cxx::__normal_iterator<int const*, std::vector<int, std::allocator<int> > >, int&)
+  [27] _GLOBAL__sub_I__ZN6BignumC2Ev [4] Bignum::operator-(Bignum) [12] void std::vector<int, std::allocator<int> >::_M_realloc_insert<int const&>(__gnu_cxx::__normal_iterator<int*, std::vector<int, std::allocator<int> > >, int const&)
+   [2] Bignum::expmod(Bignum, Bignum) [6] Bignum::operator*(Bignum) [10] void std::vector<int, std::allocator<int> >::_M_realloc_insert<int>(__gnu_cxx::__normal_iterator<int*, std::vector<int, std::allocator<int> > >, int&&)
+  [25] Bignum::to_string[abi:cxx11]() [8] Bignum::operator*(int) [11] std::vector<int, std::allocator<int> >::operator=(std::vector<int, std::allocator<int> > const&)
+  [23] Bignum::Bignum(Bignum const&) [9] Bignum::operator+(Bignum) [24] __gnu_cxx::__normal_iterator<char const*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > std::__find_if<__gnu_cxx::__normal_iterator<char const*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > >, __gnu_cxx::__ops::_Iter_negate<bool (*)(char)> >(__gnu_cxx::__normal_iterator<char const*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > >, __gnu_cxx::__normal_iterator<char const*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > >, __gnu_cxx::__ops::_Iter_negate<bool (*)(char)>, std::random_access_iterator_tag)
+   [3] Bignum::operator/(Bignum) [5] Bignum::operator%(Bignum)
