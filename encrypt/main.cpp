@@ -20,6 +20,8 @@ bool Bignum::OPT2 = false;
 bool Bignum::OPT3 = false;
 bool Bignum::OPT4 = false;
 
+bool Bignum::table_calc = false;
+
 int optimized_base = 10000;
 int Bignum::BASE = 0;
 Bignum Bignum::BZero;
@@ -56,17 +58,18 @@ std::string to_numeric(std::string next_line)
 std::string to_chars(Bignum to_numeric)
 {
 	std::string nlas("");
-	int d_to_go = to_numeric.as_vec().size()%3;
+	std::vector<int> vec = to_numeric.as_vec(); // vector in base 10
+	int d_to_go = vec.size()%3;
 	if(d_to_go == 0)
 		d_to_go = 3;
 	int index = 0;
 	int next_d = 0;
-	int size = (to_numeric.as_vec().size()+2)/3;
+	int size = (vec.size()+2)/3;
 	for(int n = 0; n < size; n++)
 	{
 		do
 		{
-			next_d = next_d*Bignum::BASE + to_numeric.as_vec()[index++];
+			next_d = next_d*10 + vec[index++];
 		}
 		while(--d_to_go);
 		nlas += (char)next_d;
@@ -152,7 +155,9 @@ int main(int argc, char **argv)
 		else if (c == '4')
 			Bignum::OPT4 = true;
 	}
+	// std::cout << "setting base" << std::endl;
 	setbase(Bignum::OPT4);
+	// std::cout << "finished setting base" << std::endl;
 	// Bignum b1 = Bignum(num1);
 	// Bignum b2 = Bignum(num2);
 	// // // for (auto i: b1.as_vec()) {
@@ -205,36 +210,23 @@ int main(int argc, char **argv)
 			std::cout << (Bignum(num1).gcd(Bignum(num2))).to_string() << std::endl;
 			return 0;
 		case 'e':
+
+			// std::cout << "starting encrypt" << std::endl;
 			while(!std::cin.eof())
 			{
 				std::string next_line;
 				std::getline(std::cin, next_line);
-				// Many famous movie lines are too long to encrypt in one chunk, so we do all of them as two lines
-				// A line too long for two-chunk encryption is truncated (this only affects one line)
-				// if(next_line.size()*3 > rsa_n.size())
-				// {
-				// 	std::cout << Bignum(to_numeric(next_line.substr(0, rsa_n.size()/3))).encrypt(rsa_n, rsa_e).to_string() << std::endl;
-				// 	std::cout << Bignum(to_numeric(next_line.substr(rsa_n.size()/3, rsa_n.size()/3))).encrypt(rsa_n, rsa_e).to_string() << std::endl;
-				// }
-				// else  // Fits on one line
-				// {
-				// 	std::cout << Bignum(to_numeric(next_line)).encrypt(rsa_n, rsa_e).to_string() << std::endl;
-				// 	std::cout << Bignum(++counter).encrypt(rsa_n, rsa_e).to_string() << std::endl;
-				// }
 				if(next_line.size()*3 > rsa_n.size())
 				{
-					// print_encrypt(next_line.substr(0, rsa_n.size()/3));
-					// print_encrypt(next_line.substr(rsa_n.size()/3, rsa_n.size()/3));
-
 					std::cout << Bignum(to_numeric(next_line.substr(0, rsa_n.size()/3))).encrypt(rsa_n, rsa_e).to_string() << std::endl;
 					std::cout << Bignum(to_numeric(next_line.substr(rsa_n.size()/3, rsa_n.size()/3))).encrypt(rsa_n, rsa_e).to_string() << std::endl;
 				}
 				else  // Fits on one line
 				{
-					// print_encrypt(next_line);
-					// print_encrypt(++counter);
+					// std::cout << "bignum 1 passed in: " << Bignum(to_numeric(next_line)).to_string() << std::endl;
+					// std::cout << "bignum 2 passed in: " << Bignum(std::to_string(counter+1)).to_string() << std::endl;
 					std::cout << Bignum(to_numeric(next_line)).encrypt(rsa_n, rsa_e).to_string() << std::endl;
-					std::cout << Bignum(++counter).encrypt(rsa_n, rsa_e).to_string() << std::endl;
+					std::cout << Bignum(std::to_string(++counter)).encrypt(rsa_n, rsa_e).to_string() << std::endl;
 				}
 			}
 			return 0;
@@ -244,31 +236,11 @@ int main(int argc, char **argv)
 				std::string part1, part2;
 				std::getline(std::cin, part1);
 				std::getline(std::cin, part2);
-
-				// Bignum p1 = Bignum(part1);
-				// std::cout << "Bignum1 represented as vector: ";
-				// for (auto i: p1.as_vec())
-				// 	std::cout << i << std::endl;
-				// std::cout << "bignum1 represented as string:\n" << p1.to_string() << std::endl;
-
-				// Bignum p2 = Bignum(part2);
-				// std::cout << "Bignum2 represented as vector: ";
-				// for (auto i: p2.as_vec())
-				// 	std::cout << i << std::endl;
-				// std::cout << "bignum1 represented as string:\n" << p2.to_string() << std::endl;
-
-				// Bignum res1 = p1.decrypt(rsa_n, rsa_d);
-				// std::cout << "res1 represented as vector: ";
-				// for (auto i: res1.as_vec())
-				// 	std::cout << i << std::endl;
-				// std::cout << "res1 represented as string:\n" << res1.to_string() << std::endl;
-				// std::cout << "to chars output for line 1:\n" << to_chars(res1.to_string());
-
 				std::cout << to_chars(Bignum(part1).decrypt(rsa_n, rsa_d).to_string());
 				Bignum p2 = Bignum(part2).decrypt(rsa_n, rsa_d);
-				if(p2 > Bignum("100000"))
+				if(p2 > Bignum(100000))
 				{
-					std::cout << "to chars output for line 1\n" << to_chars(p2.to_string());
+					std::cout << to_chars(p2.to_string());
 				}
 				std::cout << std::endl;
 			}

@@ -24,6 +24,7 @@ Bignum::Bignum(const Bignum& b)
 
 Bignum::Bignum(int d)
 {
+	// std::cout << "in int constructor, value = " << d << std::endl;
 	std::string s = std::to_string(d);
 	// std::cout << "tes: " << s << std::endl;
 	if (OPT4) {
@@ -36,6 +37,33 @@ Bignum::Bignum(int d)
 		}
 		digits.push_back(std::stoi(s));
 		std::reverse(digits.begin(), digits.end());
+
+
+		// // s contains base-10 representation of bignum
+		// unsigned int num_zeros = std::log10(BASE); // always 4 since we assume base-10,000
+		// // std::cout << num_zeros << std::endl;
+		// while (s.size() > num_zeros) {
+		// 	std::string last_four = s.substr(s.size() - num_zeros);
+		// 	// std::cout << "last four=";
+		// 	// for (auto c: last_four)
+		// 	// 	std::cout << c;
+		// 	// std::cout << std::endl;
+		// 	digits.push_back(std::stoi(last_four));
+		// 	s.erase(s.size() - num_zeros);
+		// }
+		// // std::cout << "string s = " << std::endl;
+		// digits.push_back(std::stoi(s));
+		// std::reverse(digits.begin(), digits.end());
+
+		// // calculate the pow2 table if it has not already been calculated
+		// if (!table_calc) {
+		// 	table_calc = true;
+		// 	pow_2[0] = BOne;
+		// 	pow_2[1] = Bignum("2");
+		// 	for (int i = 2; i < 550; i++) {
+		// 		pow_2[i] = pow_2[i-1] + pow_2[i-1];
+		// 	}
+		// }
 	}
 	else {
 		for(auto c: s)
@@ -45,8 +73,11 @@ Bignum::Bignum(int d)
 
 Bignum::Bignum(std::string s)
 {
+	// std::cout << "in string constructor, value = " << s << std::endl;
+	// std::cout << "constructor with s = " << s << std::endl;
+	// std::cout << "table calc is"
 	if (!s.empty()) {
-		// std::cout << "yeah: " << s << std::endl;
+		// std::cout << "string value: " << s << std::endl;
 		if (OPT4) {
 			// s contains base-10 representation of bignum
 			unsigned int num_zeros = std::log10(BASE); // always 4 since we assume base-10,000
@@ -63,18 +94,45 @@ Bignum::Bignum(std::string s)
 			// std::cout << "string s = " << std::endl;
 			digits.push_back(std::stoi(s));
 			std::reverse(digits.begin(), digits.end());
-
 		}
 		else {
 			for(auto c: s)
 				digits.push_back(c-'0');
 		}
 	}
+
+	// calculate the pow2 table if it has not already been calculated
+	if (!table_calc) {
+		table_calc = true;
+		pow_2[0] = BOne;
+		pow_2[1] = Bignum("2");
+		for (int i = 2; i < 600; i++) {
+			pow_2[i] = pow_2[i-1] + pow_2[i-1];
+		}
+	}
 }
 
+// always returns the vector as a base-10 representation of bignum
 std::vector<int> Bignum::as_vec() const
 {
-	return digits;
+	if (BASE == 10) {
+		return digits;
+	}
+	else {
+		std::vector<int> res;
+		int num_zeros = std::log10(BASE);
+		for (auto c: std::to_string(digits[0]))
+			res.push_back(c-'0');
+		for (unsigned int i = 1; i < digits.size(); i++) {
+			std::string s = std::to_string(digits[i]);
+			for (unsigned int j = 0; j < num_zeros - s.size(); j++) {
+				res.push_back(0);
+			}
+			for (auto c: s)
+				res.push_back(c-'0');
+		}
+		return res;
+	}
 }
 
 std::string Bignum::to_string() const
@@ -355,6 +413,8 @@ int Bignum::size() const
 // returns 2^n in Bignum form
 Bignum Bignum::two_exp(int n) const
 {
+	// if (n > 500)
+	// 	std::cout << "BIG BOY ALERT: " << n << std::endl;
 	// auto it = pow_2.find(n);
 	// if (it != pow_2.end()) {
 	// 	// std::cout << "Found value for 2^" << n << ": " << it->second.to_string() << std::endl;
@@ -395,18 +455,22 @@ int Bignum::get_value(int index) const
 
 std::pair<Bignum, Bignum> Bignum::divmod(const Bignum& b) const
 {
-	std::cout << "dividing " << to_string() << " by " << b.to_string() << std::endl;
+
+	// std::cout << "in divmod" << std::endl;
+	// std::cout << "\n" << to_string() << " / " << b.to_string();
 	// first: division result, second: modulus result
 	std::pair<Bignum, Bignum> divmod_result;
 	// Checking simple cases
 	if(b > *this)
 	{
+		// std::cout << " = " << BZero.to_string() << std::endl;
 		divmod_result.first = BZero;
 		divmod_result.second = *this;
 		return divmod_result;
 	}
 	if(b == *this)
 	{
+		// std::cout << " = " << BOne.to_string() << std::endl;
 		divmod_result.first = BOne;
 		divmod_result.second = BZero;
 		return divmod_result;
@@ -455,18 +519,23 @@ std::pair<Bignum, Bignum> Bignum::divmod(const Bignum& b) const
 					index = k;
 					break;
 				}
-				// if (table[k] == tmp) {
-				// 	index = k-1;
-				// 	break;
-				// }
-			}
-			if (index == -200) {
-				std::cout << "ERROR AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n" << std::endl;
 			}
 			tmp = tmp - table[index];
 			// std::cout << "correct index = " << index << std::endl;
 			// std::cout << "index gives value of = " << table[index].to_string() << std::endl;
-			res = res + two_exp(index);
+
+			// OLD METHOD:::
+			// res = res + two_exp(index);
+			// if (two_exp(index).to_string().size() != pow_2[index].to_string().size())
+			// 	std::cout << "\nindex = " << index << "\n" << two_exp(index).to_string() << "\nvs\n" << pow_2[index].to_string() << std::endl;
+
+			// NEW METHOD:::
+			if (index == 0)
+				res = res + BOne;
+			else if (index > 600)
+				res = res + two_exp(index);
+			else
+				res = res + pow_2[index];
 			// std::cout << "tmp after this iteration is = " << tmp.to_string() << std::endl;
 			// std::cout << "res after this iteration is = " << res.to_string() << std::endl;
 			prev_index = index;
@@ -525,10 +594,12 @@ std::pair<Bignum, Bignum> Bignum::divmod(const Bignum& b) const
 
 	if(res.digits.size() == 0)
 	{
+		// std::cout << " = " << BZero.to_string() << std::endl;
 		divmod_result.first = BZero;
 		divmod_result.second = BZero;
 		return divmod_result;
 	}
+	// std::cout << " = " << res.to_string() << std::endl;
 	divmod_result.first = res;
 	divmod_result.second = tmp;
 	return divmod_result;

@@ -43,4 +43,5 @@ class Bignum
 		std::vector<int> digits;
 		void append_digit(int);
 		static std::map<int, Bignum> pow_2; // map that stores powers of 2 to avoid repeated calculations
+		static bool table_calc; // true if the pow_2 table has already been calculated
 };
