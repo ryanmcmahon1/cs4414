@@ -226,18 +226,21 @@ void redisplay()
 
 // int count = 0;
 std::atomic<int> count(0);
+
 // moves a chicken around randomly
 void move_chicken(DisplayObject chicken, int num)
 {
-	int y = 10, oldy = 10, x = 10, oldx = 10;
+	int y = 10*num, oldy = 10*num, x = 10*num, oldx = 10*num;
 	while (true) {
 		std::unique_lock<std::mutex> lock(cv_mutex);
-		count++;
+		// count++;
 		go = false;
 		// std::cout << "moving chicken " << num << ", count = " << count << std::endl;
 		// std::cout << "go = " << go << std::endl;
-		y = std::max(1, y + (1+std::rand()) % 10 - 5);
-		x = std::max(1, x + (1+std::rand()) % 10 - 5);
+		// y = std::max(1, y + (1+std::rand()) % 10 - 5);
+		// x = std::max(1, x + (1+std::rand()) % 10 - 5);
+		y = std::min(std::max(6, y + std::rand() % 3 - 1), 15); // move random number in y direction, within _2_ units of prev. location
+		x = std::min(std::max(6, y + std::rand() % 9 - 4), 15); // ...within _8_ units of prev. location
 		chicken.draw(oldy = y, oldx = x);
 		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(500);
 		cv.wait_until(lock, timeout, [&](){return go == true;});
@@ -246,21 +249,44 @@ void move_chicken(DisplayObject chicken, int num)
 }
 
 // moves a truck along a road
-// void move_truck(DisplayObject truck, int num)
-// {
-	
-// 	while (true) {
-// 		std::unique_lock<std::mutex> lock(cv_mutex);
-// 		go = false;
-// 		std::cout << "moving chicken " << num << std::endl;
-// 		// std::cout << "go = " << go << std::endl;
-// 		y = std::max(1, y + (1+std::rand()) % 10 - 5);
-// 		x = std::max(1, x + (1+std::rand()) % 10 - 5);
-// 		chicken.draw(oldy = y, oldx = x);
-// 		cv.wait(lock, [&](){return go == true;});
-// 		std::cout << "relasing lock for chicken " << num<< std::endl;
-// 	}
-// }
+void move_truck(DisplayObject truck)
+{
+	int y = 42, oldy = 42, x = 13, oldx = 13;
+	bool up = true; // true if truck is currently moving "up" (with respect to the view of the screen)
+	int ymin = 32, ymax = 54, xmin = 13, xmax = 50;
+	while (true) {
+		std::unique_lock<std::mutex> lock(cv_mutex);
+		// count++;
+		go = false;
+		// std::cout << "moving chicken " << num << ", count = " << count << std::endl;
+		// std::cout << "go = " << go << std::endl;
+		// y = std::max(1, y + (1+std::rand()) % 10 - 5);
+		// x = std::max(1, x + (1+std::rand()) % 10 - 5);
+		// y = std::min(std::max(1, y + std::rand() % 5 - 2), 15); // move random number in y direction, within _2_ units of prev. location
+		// x = std::min(std::max(1, y + std::rand() % 17 - 8), 15); // ...within _8_ units of prev. location
+
+		//TODO: idea for later; set "source" and "dest" locations, and add a bool for "leaving" vs. "returning". Then I could just have a check each cycle
+		// to either increase/decrease x and y by a small value until we reach the location, then change the bool and go back. This would also make it easier to 
+		// avoid collisions
+
+		if (y <= ymin) {
+			up = false;
+		}
+		else if (y >= ymax) {
+			up = true;
+		}
+
+		if (up)
+			y = y - 1;
+		else
+			y = y + 1;		
+		
+		truck.draw(oldy = y, oldx = x);
+		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(500);
+		cv.wait_until(lock, timeout, [&](){return go == true;});
+		// std::cout << "relasing lock for chicken " << num<< std::endl;
+	}
+}
 
 // Below is a totally fake main method that simply puts some of the icons on the screen to illustrate various options
 // It moves the chicken around randomly (if it goes "into" the barn, it vanishes because the barn is in a higher layer).
@@ -274,10 +300,10 @@ int bakery_x = 50;
 int main(int argc, char** argv)
 {	
 	srand(time(0));
-	// egg_barn.draw(1, 1);
-	// flour_barn.draw(54, 1);
-	// bakery.draw(bakery_y, bakery_x);
-	// cow.draw(17, 18);
+	egg_barn.draw(1, 1);
+	flour_barn.draw(54, 1);
+	bakery.draw(bakery_y, bakery_x);
+	cow.draw(17, 18);
 	// farmer.draw(22, 19);
 	// child.draw(30, 19);
 	// eggs.draw(bakery_y+4, bakery_x-7);
@@ -331,9 +357,11 @@ int main(int argc, char** argv)
 	std::thread rd(redisplay);
 	std::thread c1(move_chicken, chicken1, 1);
 	std::thread c2(move_chicken, chicken2, 2);
+	std::thread tf(move_truck, flour_truck);
+	// te: egg truck that goes from egg barn to bakery
 
 	c2.join();
-	// c1.join();
-	// rd.join();
+	c1.join();
+	rd.join();
     return 0;
 }
