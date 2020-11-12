@@ -198,46 +198,69 @@ int delay = 500;
 
 std::condition_variable cv;
 std::mutex cv_mutex;
-int i = 0; // set to 1 while we are redisplaying
+std::atomic<bool> go(false); // set to 1 while we are redisplaying
 
 void redisplay()
 {
 	while (true) {
 		// std::cout << "sleeping" << std::endl;
+		// go = false;
 		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 		{
 			std::lock_guard<std::mutex> lock(cv_mutex);
 			// std::cout << "doing redisplay" << std::endl;
-			i = 0;
 			DisplayObject::redisplay();
-			std::cout << "Eggs: Laid=" << eggs_laid << ", Used=" << eggs_used << 
-							" Butter: Sold=" << butter_produced << ", Used=" << butter_used <<
-							" Sugar: Sold=" << sugar_produced << ", Used=" << sugar_used <<
-							" Flour: Sold=" << flour_produced << ", Used=" << flour_used << 
-							" Cakes: Baked=" << cakes_produced << ", Sold=" << cakes_sold << std::endl;
-			i = 1;
+			// std::cout << "Eggs: Laid=" << eggs_laid << ", Used=" << eggs_used << 
+			// 				" Butter: Sold=" << butter_produced << ", Used=" << butter_used <<
+			// 				" Sugar: Sold=" << sugar_produced << ", Used=" << sugar_used <<
+			// 				" Flour: Sold=" << flour_produced << ", Used=" << flour_used << 
+			// 				" Cakes: Baked=" << cakes_produced << ", Sold=" << cakes_sold << std::endl;
+			
+			go = true;
 		}
 		// std::cout << "notifying all" << std::endl;
 		cv.notify_all();
 	}
 }
 
-int y = 10, oldy = 10, x = 10, oldx = 10, mc = 0;
-// int count = 0;
 
+// int count = 0;
+std::atomic<int> count(0);
 // moves a chicken around randomly
-void move_chicken(DisplayObject chicken)
+void move_chicken(DisplayObject chicken, int num)
 {
+	int y = 10, oldy = 10, x = 10, oldx = 10;
 	while (true) {
 		std::unique_lock<std::mutex> lock(cv_mutex);
-		// std::cout << "moving chicken " << num;
+		count++;
+		go = false;
+		// std::cout << "moving chicken " << num << ", count = " << count << std::endl;
+		// std::cout << "go = " << go << std::endl;
 		y = std::max(1, y + (1+std::rand()) % 10 - 5);
 		x = std::max(1, x + (1+std::rand()) % 10 - 5);
 		chicken.draw(oldy = y, oldx = x);
-		// std::cout << "... finished drawing chicken " << num << ", waiting..." << std::endl;
-		cv.wait(lock, [](){return i == 1;});
+		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(500);
+		cv.wait_until(lock, timeout, [&](){return go == true;});
+		// std::cout << "relasing lock for chicken " << num<< std::endl;
 	}
 }
+
+// moves a truck along a road
+// void move_truck(DisplayObject truck, int num)
+// {
+	
+// 	while (true) {
+// 		std::unique_lock<std::mutex> lock(cv_mutex);
+// 		go = false;
+// 		std::cout << "moving chicken " << num << std::endl;
+// 		// std::cout << "go = " << go << std::endl;
+// 		y = std::max(1, y + (1+std::rand()) % 10 - 5);
+// 		x = std::max(1, x + (1+std::rand()) % 10 - 5);
+// 		chicken.draw(oldy = y, oldx = x);
+// 		cv.wait(lock, [&](){return go == true;});
+// 		std::cout << "relasing lock for chicken " << num<< std::endl;
+// 	}
+// }
 
 // Below is a totally fake main method that simply puts some of the icons on the screen to illustrate various options
 // It moves the chicken around randomly (if it goes "into" the barn, it vanishes because the barn is in a higher layer).
@@ -253,16 +276,16 @@ int main(int argc, char** argv)
 	srand(time(0));
 	// egg_barn.draw(1, 1);
 	// flour_barn.draw(54, 1);
-	bakery.draw(bakery_y, bakery_x);
-	cow.draw(17, 18);
-	farmer.draw(22, 19);
-	child.draw(30, 19);
+	// bakery.draw(bakery_y, bakery_x);
+	// cow.draw(17, 18);
+	// farmer.draw(22, 19);
+	// child.draw(30, 19);
 	// eggs.draw(bakery_y+4, bakery_x-7);
 	// flour.draw(bakery_y+8, bakery_x-7);
 	// sugar.draw(bakery_y+12, bakery_x-7);
 	// butter.draw(bakery_y+16, bakery_x-7);
-	egg_truck.draw(42, 15);
-	flour_truck.draw(50, 15);
+	// egg_truck.draw(42, 15);
+	// flour_truck.draw(50, 15);
 	// int y = 10, oldy = 10, x = 10, oldx = 10, mc = 0;
 	// bool baked = false;
 	// std::string mixer_string;
@@ -306,11 +329,11 @@ int main(int argc, char** argv)
 		// usleep(1000000);
 	// }
 	std::thread rd(redisplay);
-	std::thread c1(move_chicken, chicken1);
-	// std::thread c2(move_chicken, chicken2, 2);
+	std::thread c1(move_chicken, chicken1, 1);
+	std::thread c2(move_chicken, chicken2, 2);
 
-	c1.join();
-	// c2.join();
-	rd.join();
+	c2.join();
+	// c1.join();
+	// rd.join();
     return 0;
 }
