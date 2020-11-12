@@ -49,6 +49,24 @@ DisplayObject("\
  -------", 0),
 };
 
+// third chicken next
+DisplayObject nest3[4] = {DisplayObject("\
+\\       /#\
+ -------", 0),
+
+DisplayObject("\
+\\   O   /#\
+ -------", 0),
+
+DisplayObject("\
+\\  OO   /#\
+ -------", 0),
+
+DisplayObject("\
+\\  OOO  /#\
+ -------", 0),
+};
+
 // first chicken
 DisplayObject chicken1("\
      O>#\
@@ -239,8 +257,8 @@ void move_chicken(DisplayObject chicken, int num)
 		// std::cout << "go = " << go << std::endl;
 		// y = std::max(1, y + (1+std::rand()) % 10 - 5);
 		// x = std::max(1, x + (1+std::rand()) % 10 - 5);
-		y = std::min(std::max(6, y + std::rand() % 3 - 1), 15); // move random number in y direction, within _2_ units of prev. location
-		x = std::min(std::max(6, y + std::rand() % 9 - 4), 15); // ...within _8_ units of prev. location
+		y = std::min(std::max(1, y + std::rand() % 3 - 1), 15); // move random number in y direction, within _2_ units of prev. location
+		x = std::min(std::max(1, y + std::rand() % 5 - 2), 15); // ...within _8_ units of prev. location
 		chicken.draw(oldy = y, oldx = x);
 		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(500);
 		cv.wait_until(lock, timeout, [&](){return go == true;});
@@ -248,12 +266,12 @@ void move_chicken(DisplayObject chicken, int num)
 	}
 }
 
-// moves a truck along a road
-void move_truck(DisplayObject truck)
+// moves a truck along a vertical road (from ymin to ymax), should start from bottom of path, moving upwards
+void move_truck(DisplayObject truck, int ymin, int ymax, int xmin, int xmax)
 {
-	int y = 42, oldy = 42, x = 13, oldx = 13;
+	int y = ymax, oldy = ymax, x = xmin, oldx = xmin;
 	bool up = true; // true if truck is currently moving "up" (with respect to the view of the screen)
-	int ymin = 32, ymax = 54, xmin = 13, xmax = 50;
+	
 	while (true) {
 		std::unique_lock<std::mutex> lock(cv_mutex);
 		// count++;
@@ -285,6 +303,17 @@ void move_truck(DisplayObject truck)
 		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(500);
 		cv.wait_until(lock, timeout, [&](){return go == true;});
 		// std::cout << "relasing lock for chicken " << num<< std::endl;
+	}
+}
+
+// adds an egg to the nest each iteration
+void fill_nest(DisplayObject nest[4], int y, int x, int num) {
+	int n = num;
+	while (true) {
+		std::unique_lock<std::mutex> lock(cv_mutex);
+		nest[n++ % 4].draw(y, x);
+		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(500);
+		cv.wait_until(lock, timeout, [&](){return go == true;});
 	}
 }
 
@@ -354,11 +383,16 @@ int main(int argc, char** argv)
 		// redisplay();
 		// usleep(1000000);
 	// }
+
+	// TODO: add PATH data structure, use relative locations rather than absolute locations
 	std::thread rd(redisplay);
 	std::thread c1(move_chicken, chicken1, 1);
 	std::thread c2(move_chicken, chicken2, 2);
-	std::thread tf(move_truck, flour_truck);
-	// te: egg truck that goes from egg barn to bakery
+	std::thread tf(move_truck, flour_truck, 32, 54, 13, 50);
+	std::thread te(move_truck, egg_truck, 2, 25, 33, 33);
+	std::thread n1(fill_nest, nest1, 10, 10, 1);
+	std::thread n2(fill_nest, nest2, 10, 20, 2);
+	std::thread n3(fill_nest, nest3, 15, 15, 3);
 
 	c2.join();
 	c1.join();
