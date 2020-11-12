@@ -198,35 +198,44 @@ int delay = 500;
 
 std::condition_variable cv;
 std::mutex cv_mutex;
-std::atomic<bool> paused{false}; // set to true while we are waiting, set back to false when we are done waiting
+int i = 0; // set to 1 while we are redisplaying
 
 void redisplay()
 {
 	while (true) {
-		paused = false;
-		DisplayObject::redisplay();
-		std::cout << "Eggs: Laid=" << eggs_laid << ", Used=" << eggs_used << 
-						" Butter: Sold=" << butter_produced << ", Used=" << butter_used <<
-						" Sugar: Sold=" << sugar_produced << ", Used=" << sugar_used <<
-						" Flour: Sold=" << flour_produced << ", Used=" << flour_used << 
-						" Cakes: Baked=" << cakes_produced << ", Sold=" << cakes_sold << std::endl;
-		std::this_thread::sleep_for(std::chrono::milliseconds(500));
+		// std::cout << "sleeping" << std::endl;
+		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+		{
+			std::lock_guard<std::mutex> lock(cv_mutex);
+			// std::cout << "doing redisplay" << std::endl;
+			i = 0;
+			DisplayObject::redisplay();
+			std::cout << "Eggs: Laid=" << eggs_laid << ", Used=" << eggs_used << 
+							" Butter: Sold=" << butter_produced << ", Used=" << butter_used <<
+							" Sugar: Sold=" << sugar_produced << ", Used=" << sugar_used <<
+							" Flour: Sold=" << flour_produced << ", Used=" << flour_used << 
+							" Cakes: Baked=" << cakes_produced << ", Sold=" << cakes_sold << std::endl;
+			i = 1;
+		}
+		// std::cout << "notifying all" << std::endl;
 		cv.notify_all();
 	}
 }
 
 int y = 10, oldy = 10, x = 10, oldx = 10, mc = 0;
+// int count = 0;
 
 // moves a chicken around randomly
 void move_chicken(DisplayObject chicken)
 {
 	while (true) {
+		std::unique_lock<std::mutex> lock(cv_mutex);
+		// std::cout << "moving chicken " << num;
 		y = std::max(1, y + (1+std::rand()) % 10 - 5);
 		x = std::max(1, x + (1+std::rand()) % 10 - 5);
 		chicken.draw(oldy = y, oldx = x);
-		auto const timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay);
-		std::unique_lock<std::mutex> lock(cv_mutex);
-		cv.wait_until(lock, timeout, [](){return !paused;});
+		// std::cout << "... finished drawing chicken " << num << ", waiting..." << std::endl;
+		cv.wait(lock, [](){return i == 1;});
 	}
 }
 
@@ -296,8 +305,12 @@ int main(int argc, char** argv)
 		// redisplay();
 		// usleep(1000000);
 	// }
+	std::thread rd(redisplay);
 	std::thread c1(move_chicken, chicken1);
-	std::thread c2(move_chicken, chicken2);
-	redisplay();
+	// std::thread c2(move_chicken, chicken2, 2);
+
+	c1.join();
+	// c2.join();
+	rd.join();
     return 0;
 }
