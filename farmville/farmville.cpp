@@ -97,6 +97,7 @@ DisplayObject child("\
 
 // barn where butter and eggs are stored
 DisplayObject egg_barn("\
+Butter/Egg#\
    __ ^#\
   /  /  \\#\
  |  | _  |#\
@@ -104,6 +105,7 @@ DisplayObject egg_barn("\
 
 // barn where flour and sugar are stored
 DisplayObject flour_barn("\
+Flour/Sugar#\
    __ ^#\
   /  /  \\#\
  |  | _  |#\
@@ -147,17 +149,25 @@ DisplayObject flour_truck("\
   |       |__#\
   -OO----OO-O|", 3);
 
-DisplayObject flour("\
+DisplayObject flour1("\
+\\~~~~/#\
+(flour)", 2);
+DisplayObject flour2("\
 \\~~~~/#\
 (flour)", 2);
 
-DisplayObject sugar("\
+DisplayObject sugar1("\
+\\~~~~/#\
+(sugar)", 2);
+DisplayObject sugar2("\
 \\~~~~/#\
 (sugar)", 2);
 
-DisplayObject butter("[butter]", 2);
+DisplayObject butter1("[butter]", 2);
+DisplayObject butter2("[butter]", 2);
 
-DisplayObject eggs("[OOO]", 2);
+DisplayObject eggs1("[OOO]", 2);
+DisplayObject eggs2("[OOO]", 2);
 
 DisplayObject batter("[ccc]", 2);
 
@@ -246,7 +256,7 @@ void redisplay()
 std::atomic<int> count(0);
 
 // moves a chicken around randomly
-void move_chicken(DisplayObject chicken, int num)
+void move_chicken(DisplayObject chicken, int num, int ymin, int ymax, int xmin, int xmax)
 {
 	int y = 10*num, oldy = 10*num, x = 10*num, oldx = 10*num;
 	while (true) {
@@ -257,9 +267,51 @@ void move_chicken(DisplayObject chicken, int num)
 		// std::cout << "go = " << go << std::endl;
 		// y = std::max(1, y + (1+std::rand()) % 10 - 5);
 		// x = std::max(1, x + (1+std::rand()) % 10 - 5);
-		y = std::min(std::max(1, y + std::rand() % 3 - 1), 15); // move random number in y direction, within _2_ units of prev. location
-		x = std::min(std::max(1, y + std::rand() % 5 - 2), 15); // ...within _8_ units of prev. location
+		y = std::min(std::max(ymin, y + std::rand() % 3 - 1), ymax); // move random number in y direction, within _2_ units of prev. location
+		x = std::min(std::max(xmin, y + std::rand() % 5 - 2), xmax); // ...within _8_ units of prev. location
 		chicken.draw(oldy = y, oldx = x);
+		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(500);
+		cv.wait_until(lock, timeout, [&](){return go == true;});
+		// std::cout << "relasing lock for chicken " << num<< std::endl;
+	}
+}
+
+// moves a product along the conveyor belt
+void move_conveyor(DisplayObject product, int y0, int x0, int dist, int time_to_wait)
+{
+	int y = y0, oldy = y0, x = x0, oldx = x0;
+	int final = x0 + dist;
+	int counter = 0;
+	while (true) {
+		std::unique_lock<std::mutex> lock(cv_mutex);
+		go = false;
+		counter++;
+		if (counter >= time_to_wait) {
+			if (x < final)
+				x = x + 1;
+			product.draw(oldy = y, oldx = x);
+		}
+		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(500);
+		cv.wait_until(lock, timeout, [&](){return go == true;});
+		// std::cout << "relasing lock for chicken " << num<< std::endl;
+	}
+}
+
+// moves the farmer around randomly
+void move_farmer(DisplayObject farmer)
+{
+	int y = 19, oldy = 19, x = 5, oldx = 5;
+	while (true) {
+		std::unique_lock<std::mutex> lock(cv_mutex);
+		// count++;
+		go = false;
+		// std::cout << "moving chicken " << num << ", count = " << count << std::endl;
+		// std::cout << "go = " << go << std::endl;
+		// y = std::max(1, y + (1+std::rand()) % 10 - 5);
+		// x = std::max(1, x + (1+std::rand()) % 10 - 5);
+		y = std::min(std::max(17, y + std::rand() % 3 - 1), 20); // move random number in y direction, within _2_ units of prev. location
+		x = std::min(std::max(1, y + std::rand() % 7 - 3), 15); // ...within _8_ units of prev. location
+		farmer.draw(oldy = y, oldx = x);
 		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(500);
 		cv.wait_until(lock, timeout, [&](){return go == true;});
 		// std::cout << "relasing lock for chicken " << num<< std::endl;
@@ -325,14 +377,18 @@ void fill_nest(DisplayObject nest[4], int y, int x, int num) {
 // Position of bakery, so that we can keep track of where to put items inside the bakery
 int bakery_y = 18;
 int bakery_x = 50;
+int flourbarn_y = 54;
+int flourbarn_x = 20;
+int eggbarn_y = 1;
+int eggbarn_x = 1;
 
 int main(int argc, char** argv)
 {	
 	srand(time(0));
-	egg_barn.draw(1, 1);
-	flour_barn.draw(54, 1);
+	egg_barn.draw(eggbarn_y, eggbarn_x);
+	flour_barn.draw(flourbarn_y, flourbarn_x);
 	bakery.draw(bakery_y, bakery_x);
-	cow.draw(17, 18);
+	cow.draw(eggbarn_y, eggbarn_x+18);
 	// farmer.draw(22, 19);
 	// child.draw(30, 19);
 	// eggs.draw(bakery_y+4, bakery_x-7);
@@ -386,13 +442,26 @@ int main(int argc, char** argv)
 
 	// TODO: add PATH data structure, use relative locations rather than absolute locations
 	std::thread rd(redisplay);
-	std::thread c1(move_chicken, chicken1, 1);
+	std::thread c1(move_chicken, chicken1, 1, eggbarn_y+6, eggbarn_y+12, eggbarn_x, eggbarn_x+30);
 	std::thread c2(move_chicken, chicken2, 2);
-	std::thread tf(move_truck, flour_truck, 32, 54, 13, 50);
+	std::thread tf(move_truck, flour_truck, 32, 54, 33, 50);
 	std::thread te(move_truck, egg_truck, 2, 25, 33, 33);
-	std::thread n1(fill_nest, nest1, 10, 10, 1);
-	std::thread n2(fill_nest, nest2, 10, 20, 2);
-	std::thread n3(fill_nest, nest3, 15, 15, 3);
+	std::thread n1(fill_nest, nest1, eggbarn_y+15, eggbarn_x, 1);
+	std::thread n2(fill_nest, nest2, eggbarn_y+15, eggbarn_x+20, 2);
+	// std::thread n3(fill_nest, nest3, 15, 15, 3);
+	// eggs.draw(bakery_y+4, bakery_x-7);
+	// flour.draw(bakery_y+8, bakery_x-7);
+	// sugar.draw(bakery_y+12, bakery_x-7);
+	// butter.draw(bakery_y+16, bakery_x-7);
+	std::thread fa(move_farmer, farmer);
+	std::thread e1(move_conveyor, eggs1,   bakery_y+4,  bakery_x-7, 17, 0);
+	std::thread e2(move_conveyor, eggs2,   bakery_y+4,  bakery_x-7, 8, 18);
+	std::thread f1(move_conveyor, flour1,  bakery_y+8-1,  bakery_x-7, 17, 0);
+	std::thread f2(move_conveyor, flour2,  bakery_y+8-1,  bakery_x-7, 8, 18);
+	std::thread s1(move_conveyor, sugar1,  bakery_y+12-1, bakery_x-7, 17, 0);
+	std::thread s2(move_conveyor, sugar2,  bakery_y+12-1, bakery_x-7, 8, 18);
+	std::thread b1(move_conveyor, butter1, bakery_y+16, bakery_x-7, 17, 0);
+	std::thread b2(move_conveyor, butter2, bakery_y+16, bakery_x-7, 8, 18);
 
 	c2.join();
 	c1.join();
