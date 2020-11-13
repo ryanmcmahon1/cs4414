@@ -116,13 +116,13 @@ DisplayObject bakery("\
 |                                  |#\
                                    |#\
                                    |#\
-                                   -----------#\
- =================                           |#\
-|o   o   o   o   o                           |#\
-                      _________              |#\
-                       ^^^^^^^               |#\
+                                   -------------#\
+ =================                             |#\
+|o   o   o   o   o                             |#\
+                      _________                |#\
+                       ^^^^^^^      #\
  =================                  #\
-|o   o   o   o   o    |_______|    -----------#\
+|o   o   o   o   o    |_______|    -------------#\
                         oven       |#\
                                    |#\
  =================                 |#\
@@ -224,6 +224,14 @@ int cakes_produced, cakes_sold;
 int wait = 1000000;
 int delay = 500;
 
+// Position of bakery, so that we can keep track of where to put items inside the bakery
+int bakery_y = 18;
+int bakery_x = 50;
+int flourbarn_y = 54;
+int flourbarn_x = 20;
+int eggbarn_y = 1;
+int eggbarn_x = 1;
+
 std::condition_variable cv;
 std::mutex cv_mutex;
 std::atomic<bool> go(false); // set to 1 while we are redisplaying
@@ -231,8 +239,6 @@ std::atomic<bool> go(false); // set to 1 while we are redisplaying
 void redisplay()
 {
 	while (true) {
-		// std::cout << "sleeping" << std::endl;
-		// go = false;
 		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 		{
 			std::lock_guard<std::mutex> lock(cv_mutex);
@@ -369,18 +375,114 @@ void fill_nest(DisplayObject nest[4], int y, int x, int num) {
 	}
 }
 
+void add_cakes(DisplayObject cakes[7], int y, int x) {
+	int k = 0;
+	while (true) {
+		std::unique_lock<std::mutex> lock(cv_mutex);
+		cakes[k++ % 7].draw(y, x);
+		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(500);
+		cv.wait_until(lock, timeout, [&](){return go == true;});
+	}
+}
+
+// adds products to the mixer
+void fill_mixer(int y, int x) {
+	// int mc = 0;
+	std::string mixer_string;
+	DisplayObject mixer_contents(mixer_string, 3);
+	mixer_string = "";
+	// mixer_contents.update_contents(mixer_string);
+	// mixer_contents.draw(y, x);
+	int mix_count = 0;
+	while (true) {
+		std::unique_lock<std::mutex> lock(cv_mutex);
+		go = false;
+		if (mix_count <= 1)
+			mixer_string = "";
+		else if (mix_count == 7)
+			mixer_string += "E   ";
+		else if (mix_count == 10)
+			mixer_string += "B";
+		else if (mix_count == 19)
+			mixer_string += "# F";
+		else if (mix_count == 27)
+			mixer_string += "S";
+		mixer_contents.update_contents(mixer_string);
+		mixer_contents.draw(y, x);
+		// std::cout << "coutner = " << mix_count << std::endl;
+		if (mix_count <= 30)	
+			mix_count++;
+		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(500);
+		cv.wait_until(lock, timeout, [&](){return go == true;});
+	}
+}
+
+void draw_batter(int y, int x) {
+	int stop_for = 28;
+	int batter_count = 0;
+	while (true) {
+		std::unique_lock<std::mutex> lock(cv_mutex);
+		go = false;
+		if (batter_count >= stop_for)
+			batter.draw(y, x);
+		else
+			batter_count++;
+		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(500);
+		cv.wait_until(lock, timeout, [&](){return go == true;});
+	}
+}
+
+void move_children(DisplayObject child, int y0, int x0)
+{
+	// each child will move to their destination and then back to their (x0,y0) at the same time-
+	// have to add synchronization later
+	int dest_y = bakery_y+6;
+	int dest_x = bakery_x+44;
+	child.draw(y0, x0);
+	bool to_bakery = true; // set to true while we are walking towards the bakery, false o.w.
+	int y = y0;
+	int x = x0;
+	while (true) {
+		std::unique_lock<std::mutex> lock(cv_mutex);
+		go = false;
+		if (to_bakery) {
+			if (x > dest_x)
+				x--;
+			else
+				x = dest_x;
+			if (y > dest_y)
+				y--;
+			else if (y < dest_y)
+				y++;
+			else
+				y = dest_y;
+			if (y == dest_y && x == dest_x)
+				to_bakery = false;			
+		}
+		else {
+			if (x < x0)
+				x++;
+			else
+				x = x0;
+			if (y > y0)
+				y--;
+			else if (y < y0)
+				y++;
+			else
+				y = dest_y;
+			if (y == y0 && x == x0)
+				to_bakery = true;			
+		}
+		child.draw(y, x);
+		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(500);
+		cv.wait_until(lock, timeout, [&](){return go == true;});
+	}
+}
+
 // Below is a totally fake main method that simply puts some of the icons on the screen to illustrate various options
 // It moves the chicken around randomly (if it goes "into" the barn, it vanishes because the barn is in a higher layer).
 // It also illustrates how you can generate a string and turn it into a display object that will vanish after a little while
 // when that object goes out of scope and the deconstructor executes.
-
-// Position of bakery, so that we can keep track of where to put items inside the bakery
-int bakery_y = 18;
-int bakery_x = 50;
-int flourbarn_y = 54;
-int flourbarn_x = 20;
-int eggbarn_y = 1;
-int eggbarn_x = 1;
 
 int main(int argc, char** argv)
 {	
@@ -390,7 +492,7 @@ int main(int argc, char** argv)
 	bakery.draw(bakery_y, bakery_x);
 	cow.draw(eggbarn_y, eggbarn_x+18);
 	// farmer.draw(22, 19);
-	// child.draw(30, 19);
+	// child.draw(30, 130);
 	// eggs.draw(bakery_y+4, bakery_x-7);
 	// flour.draw(bakery_y+8, bakery_x-7);
 	// sugar.draw(bakery_y+12, bakery_x-7);
@@ -443,7 +545,7 @@ int main(int argc, char** argv)
 	// TODO: add PATH data structure, use relative locations rather than absolute locations
 	std::thread rd(redisplay);
 	std::thread c1(move_chicken, chicken1, 1, eggbarn_y+6, eggbarn_y+12, eggbarn_x, eggbarn_x+30);
-	std::thread c2(move_chicken, chicken2, 2);
+	std::thread c2(move_chicken, chicken2, 2, eggbarn_y+6, eggbarn_y+12, eggbarn_x, eggbarn_x+30);
 	std::thread tf(move_truck, flour_truck, 32, 54, 33, 50);
 	std::thread te(move_truck, egg_truck, 2, 25, 33, 33);
 	std::thread n1(fill_nest, nest1, eggbarn_y+15, eggbarn_x, 1);
@@ -462,6 +564,14 @@ int main(int argc, char** argv)
 	std::thread s2(move_conveyor, sugar2,  bakery_y+12-1, bakery_x-7, 8, 18);
 	std::thread b1(move_conveyor, butter1, bakery_y+16, bakery_x-7, 17, 0);
 	std::thread b2(move_conveyor, butter2, bakery_y+16, bakery_x-7, 8, 18);
+	std::thread mx(fill_mixer, bakery_y+16, bakery_x+22);
+	std::thread bt(draw_batter, bakery_y+9, bakery_x+24);
+	std::thread ck(add_cakes, cupcakes, bakery_y+5, bakery_x+30);
+	std::thread ch1(move_children, child, bakery_y+4,  bakery_x+80);
+	std::thread ch2(move_children, DisplayObject(child), bakery_y+8,  bakery_x+80);
+	std::thread ch3(move_children, DisplayObject(child), bakery_y+12, bakery_x+80);
+	std::thread ch4(move_children, DisplayObject(child), bakery_y+16, bakery_x+80);
+	std::thread ch5(move_children, DisplayObject(child), bakery_y+20, bakery_x+80);
 
 	c2.join();
 	c1.join();
