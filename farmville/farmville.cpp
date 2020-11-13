@@ -214,7 +214,6 @@ DisplayObject(\
 // bars of butter, and so forth.  Because we know the cake batter recipe (see hw3 handout), we should be able to 
 // track that all products are accounted for: They are either visible on the screen, or became "sold cakes"
 
-// TODO: change to atomics
 int eggs_laid, eggs_used;
 int butter_produced, butter_used;
 int sugar_produced, sugar_used;
@@ -222,7 +221,7 @@ int flour_produced, flour_used;
 int cakes_produced, cakes_sold;
 
 int wait = 1000000;
-int delay = 500;
+int delay = 200;
 
 // Position of bakery, so that we can keep track of where to put items inside the bakery
 int bakery_y = 18;
@@ -239,20 +238,17 @@ std::atomic<bool> go(false); // set to 1 while we are redisplaying
 void redisplay()
 {
 	while (true) {
-		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+		std::this_thread::sleep_for(std::chrono::milliseconds(delay*2));
 		{
 			std::lock_guard<std::mutex> lock(cv_mutex);
-			// std::cout << "doing redisplay" << std::endl;
 			DisplayObject::redisplay();
-			// std::cout << "Eggs: Laid=" << eggs_laid << ", Used=" << eggs_used << 
-			// 				" Butter: Sold=" << butter_produced << ", Used=" << butter_used <<
-			// 				" Sugar: Sold=" << sugar_produced << ", Used=" << sugar_used <<
-			// 				" Flour: Sold=" << flour_produced << ", Used=" << flour_used << 
-			// 				" Cakes: Baked=" << cakes_produced << ", Sold=" << cakes_sold << std::endl;
-			
+			std::cout << "Eggs: Laid=" << eggs_laid << ", Used=" << eggs_used << 
+							" Butter: Sold=" << butter_produced << ", Used=" << butter_used <<
+							" Sugar: Sold=" << sugar_produced << ", Used=" << sugar_used <<
+							" Flour: Sold=" << flour_produced << ", Used=" << flour_used << 
+							" Cakes: Baked=" << cakes_produced << ", Sold=" << cakes_sold << std::endl;
 			go = true;
 		}
-		// std::cout << "notifying all" << std::endl;
 		cv.notify_all();
 	}
 }
@@ -267,18 +263,12 @@ void move_chicken(DisplayObject chicken, int num, int ymin, int ymax, int xmin, 
 	int y = 10*num, oldy = 10*num, x = 10*num, oldx = 10*num;
 	while (true) {
 		std::unique_lock<std::mutex> lock(cv_mutex);
-		// count++;
 		go = false;
-		// std::cout << "moving chicken " << num << ", count = " << count << std::endl;
-		// std::cout << "go = " << go << std::endl;
-		// y = std::max(1, y + (1+std::rand()) % 10 - 5);
-		// x = std::max(1, x + (1+std::rand()) % 10 - 5);
-		y = std::min(std::max(ymin, y + std::rand() % 3 - 1), ymax); // move random number in y direction, within _2_ units of prev. location
-		x = std::min(std::max(xmin, y + std::rand() % 5 - 2), xmax); // ...within _8_ units of prev. location
+		y = std::min(std::max(ymin, y + std::rand() % 3 - 1), ymax);
+		x = std::min(std::max(xmin, y + std::rand() % 5 - 2), xmax);
 		chicken.draw(oldy = y, oldx = x);
-		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(500);
+		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay);
 		cv.wait_until(lock, timeout, [&](){return go == true;});
-		// std::cout << "relasing lock for chicken " << num<< std::endl;
 	}
 }
 
@@ -297,9 +287,8 @@ void move_conveyor(DisplayObject product, int y0, int x0, int dist, int time_to_
 				x = x + 1;
 			product.draw(oldy = y, oldx = x);
 		}
-		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(500);
+		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay);
 		cv.wait_until(lock, timeout, [&](){return go == true;});
-		// std::cout << "relasing lock for chicken " << num<< std::endl;
 	}
 }
 
@@ -309,18 +298,12 @@ void move_farmer(DisplayObject farmer)
 	int y = 19, oldy = 19, x = 5, oldx = 5;
 	while (true) {
 		std::unique_lock<std::mutex> lock(cv_mutex);
-		// count++;
 		go = false;
-		// std::cout << "moving chicken " << num << ", count = " << count << std::endl;
-		// std::cout << "go = " << go << std::endl;
-		// y = std::max(1, y + (1+std::rand()) % 10 - 5);
-		// x = std::max(1, x + (1+std::rand()) % 10 - 5);
-		y = std::min(std::max(17, y + std::rand() % 3 - 1), 20); // move random number in y direction, within _2_ units of prev. location
-		x = std::min(std::max(1, y + std::rand() % 7 - 3), 15); // ...within _8_ units of prev. location
+		y = std::min(std::max(17, y + std::rand() % 3 - 1), 20);
+		x = std::min(std::max(1, y + std::rand() % 7 - 3), 15);
 		farmer.draw(oldy = y, oldx = x);
-		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(500);
+		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay);
 		cv.wait_until(lock, timeout, [&](){return go == true;});
-		// std::cout << "relasing lock for chicken " << num<< std::endl;
 	}
 }
 
@@ -332,19 +315,7 @@ void move_truck(DisplayObject truck, int ymin, int ymax, int xmin, int xmax)
 	
 	while (true) {
 		std::unique_lock<std::mutex> lock(cv_mutex);
-		// count++;
 		go = false;
-		// std::cout << "moving chicken " << num << ", count = " << count << std::endl;
-		// std::cout << "go = " << go << std::endl;
-		// y = std::max(1, y + (1+std::rand()) % 10 - 5);
-		// x = std::max(1, x + (1+std::rand()) % 10 - 5);
-		// y = std::min(std::max(1, y + std::rand() % 5 - 2), 15); // move random number in y direction, within _2_ units of prev. location
-		// x = std::min(std::max(1, y + std::rand() % 17 - 8), 15); // ...within _8_ units of prev. location
-
-		//TODO: idea for later; set "source" and "dest" locations, and add a bool for "leaving" vs. "returning". Then I could just have a check each cycle
-		// to either increase/decrease x and y by a small value until we reach the location, then change the bool and go back. This would also make it easier to 
-		// avoid collisions
-
 		if (y <= ymin) {
 			up = false;
 		}
@@ -358,41 +329,43 @@ void move_truck(DisplayObject truck, int ymin, int ymax, int xmin, int xmax)
 			y = y + 1;		
 		
 		truck.draw(oldy = y, oldx = x);
-		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(500);
+		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay);
 		cv.wait_until(lock, timeout, [&](){return go == true;});
-		// std::cout << "relasing lock for chicken " << num<< std::endl;
 	}
 }
 
 // adds an egg to the nest each iteration
 void fill_nest(DisplayObject nest[4], int y, int x, int num) {
-	int n = num;
+	int n = num, l = 0;
 	while (true) {
+		if (n % 2 == 0)
+			l++;
 		std::unique_lock<std::mutex> lock(cv_mutex);
-		nest[n++ % 4].draw(y, x);
-		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(500);
+		nest[l % 4].draw(y, x);
+		n++;
+		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay);
 		cv.wait_until(lock, timeout, [&](){return go == true;});
 	}
 }
 
 void add_cakes(DisplayObject cakes[7], int y, int x) {
-	int k = 0;
+	int k = 0, c = 0;
 	while (true) {
+		if (k % 2 == 0)
+			c++;
 		std::unique_lock<std::mutex> lock(cv_mutex);
-		cakes[k++ % 7].draw(y, x);
-		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(500);
+		cakes[c % 7].draw(y, x);
+		k++;
+		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay);
 		cv.wait_until(lock, timeout, [&](){return go == true;});
 	}
 }
 
 // adds products to the mixer
 void fill_mixer(int y, int x) {
-	// int mc = 0;
 	std::string mixer_string;
 	DisplayObject mixer_contents(mixer_string, 3);
 	mixer_string = "";
-	// mixer_contents.update_contents(mixer_string);
-	// mixer_contents.draw(y, x);
 	int mix_count = 0;
 	while (true) {
 		std::unique_lock<std::mutex> lock(cv_mutex);
@@ -409,10 +382,9 @@ void fill_mixer(int y, int x) {
 			mixer_string += "S";
 		mixer_contents.update_contents(mixer_string);
 		mixer_contents.draw(y, x);
-		// std::cout << "coutner = " << mix_count << std::endl;
 		if (mix_count <= 30)	
 			mix_count++;
-		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(500);
+		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay);
 		cv.wait_until(lock, timeout, [&](){return go == true;});
 	}
 }
@@ -427,7 +399,7 @@ void draw_batter(int y, int x) {
 			batter.draw(y, x);
 		else
 			batter_count++;
-		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(500);
+		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay);
 		cv.wait_until(lock, timeout, [&](){return go == true;});
 	}
 }
@@ -474,7 +446,7 @@ void move_children(DisplayObject child, int y0, int x0)
 				to_bakery = true;			
 		}
 		child.draw(y, x);
-		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(500);
+		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay);
 		cv.wait_until(lock, timeout, [&](){return go == true;});
 	}
 }
@@ -491,57 +463,7 @@ int main(int argc, char** argv)
 	flour_barn.draw(flourbarn_y, flourbarn_x);
 	bakery.draw(bakery_y, bakery_x);
 	cow.draw(eggbarn_y, eggbarn_x+18);
-	// farmer.draw(22, 19);
-	// child.draw(30, 130);
-	// eggs.draw(bakery_y+4, bakery_x-7);
-	// flour.draw(bakery_y+8, bakery_x-7);
-	// sugar.draw(bakery_y+12, bakery_x-7);
-	// butter.draw(bakery_y+16, bakery_x-7);
-	// egg_truck.draw(42, 15);
-	// flour_truck.draw(50, 15);
-	// int y = 10, oldy = 10, x = 10, oldx = 10, mc = 0;
-	// bool baked = false;
-	// std::string mixer_string;
-	// DisplayObject mixer_contents(mixer_string, 3);
-	// for(int n = 0; n < 10000; n++)
-	// {
-	// 	nest1[n % 4].draw(10, 10);
-	// 	nest2[(n+1) % 4].draw(10, 10);
-	// 	cupcakes[n % 7].draw(bakery_y+5, bakery_x+30);
-	// 	if(mc == 0xF)
-	// 	{	
-	// 		// All the batter ingredients are in the mixer!  Mix them, then
-	// 		// clear the contents for the next batch (in fact we really should do more: see hw3 assignment).
-	// 		mc = 0;
-	// 		mixer_string = "";
-	// 		mixer_contents.update_contents(mixer_string);
-	// 		mixer_contents.draw(bakery_y+16, bakery_x+22);
-	// 		// This draws a picture of batter in the oven... but never erases it.
-	// 		batter.draw(bakery_y+9, bakery_x+24);
-	// 		baked = true;
-	// 	}
-	// 	else
-	// 	{
-	// 		mc |= std::rand()&0xF;
-	// 		mixer_string = (mc & 0x1)? "E": " ";
-	// 		mixer_string += "  ";
-	// 		mixer_string += (mc & 0x2)? "B": " ";
-	// 		mixer_string += "#";
-	// 		mixer_string += (mc & 0x4)? " F": "  ";
-	// 		mixer_string += (mc & 0x8)? "S": " ";
-	// 		mixer_contents.update_contents(mixer_string);
-	// 		mixer_contents.draw(bakery_y+16, bakery_x+22);
-	// 		if(baked && (n % 6) == 5)
-	// 		{
-	// 			baked = false;
-	// 		}
-	// 	}
-		// std::thread c1(move_chicken, chicken1);
-		// std::thread c2(move_chicken, chicken2);
-		// redisplay();
-		// usleep(1000000);
-	// }
-
+	
 	// TODO: add PATH data structure, use relative locations rather than absolute locations
 	std::thread rd(redisplay);
 	std::thread c1(move_chicken, chicken1, 1, eggbarn_y+6, eggbarn_y+12, eggbarn_x, eggbarn_x+30);
@@ -550,11 +472,6 @@ int main(int argc, char** argv)
 	std::thread te(move_truck, egg_truck, 2, 25, 33, 33);
 	std::thread n1(fill_nest, nest1, eggbarn_y+15, eggbarn_x, 1);
 	std::thread n2(fill_nest, nest2, eggbarn_y+15, eggbarn_x+20, 2);
-	// std::thread n3(fill_nest, nest3, 15, 15, 3);
-	// eggs.draw(bakery_y+4, bakery_x-7);
-	// flour.draw(bakery_y+8, bakery_x-7);
-	// sugar.draw(bakery_y+12, bakery_x-7);
-	// butter.draw(bakery_y+16, bakery_x-7);
 	std::thread fa(move_farmer, farmer);
 	std::thread e1(move_conveyor, eggs1,   bakery_y+4,  bakery_x-7, 17, 0);
 	std::thread e2(move_conveyor, eggs2,   bakery_y+4,  bakery_x-7, 8, 18);
