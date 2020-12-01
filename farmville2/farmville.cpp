@@ -334,7 +334,8 @@ void move_truckv(DisplayObject truck, int ymin, int ymax, int xmin, int xmax)
 		go = false;
 
 		// check if we are about to enter the intersection from either direction
-		if ((!up && y+3 == int_ymin) || (up && y == int_ymax)) {
+		bool entering = (!up && y+3 == int_ymin) || (up && y == int_ymax);
+		if (entering) {
 			if (!int_full) {
 				int_full = true;
 				in_int = true;
@@ -342,8 +343,9 @@ void move_truckv(DisplayObject truck, int ymin, int ymax, int xmin, int xmax)
 			// set in_int to false?			
 		}
 
-		// only update location if the intersection is unoccupied, or occupied by this truck
-		if (!int_full || (int_full && in_int)) {
+		// only update location if the intersection is unoccupied, or occupied by this truck, or if
+		// we are not near the intersection
+		if (!int_full || (int_full && in_int) || !entering) {
 			if (y <= ymin)
 				up = false;
 			else if (y >= ymax)
@@ -385,14 +387,15 @@ void move_truckh(DisplayObject truck, int ymin, int ymax, int xmin, int xmax)
 		// std::unique_lock<std::mutex> lock(cv_mutex);
 		go = false;
 
-		if ((right && x+12 == int_xmin) || (!right && x == int_xmax)) {
+		bool entering = (right && x+14 == int_xmin) || (!right && x == int_xmax);
+		if (entering) {
 			if (!int_full) {
 				int_full = true;
 				in_int = true;
 			}
 		}
 
-		if (!int_full || (int_full && in_int)) {
+		if (!int_full || (int_full && in_int) || !entering) {
 			if (x <= xmin)
 				right = true;
 			else if (x >= xmax)
@@ -403,7 +406,7 @@ void move_truckh(DisplayObject truck, int ymin, int ymax, int xmin, int xmax)
 				x = x - 1;	
 		}
 
-		if ((right && x == int_xmax) || (!right && x+12 == int_xmin)) {
+		if ((right && x == int_xmax) || (!right && x+14 == int_xmin)) {
 			int_full = false;
 			in_int = false;
 		}
