@@ -327,22 +327,40 @@ void move_truckv(DisplayObject truck, int ymin, int ymax, int xmin, int xmax)
 {
 	int y = ymax, oldy = ymax, x = xmin, oldx = xmin;
 	bool up = true; // true if truck is currently moving "up" (with respect to the view of the screen)
+	bool in_int = false; // true if this truck is in the intersection
 	
 	while (true) {
-		std::unique_lock<std::mutex> lock(cv_mutex);
+		// std::unique_lock<std::mutex> lock(cv_mutex);
 		go = false;
-		if (y <= ymin) {
-			up = false;
-		}
-		else if (y >= ymax) {
-			up = true;
+
+		// check if we are about to enter the intersection from either direction
+		if ((!up && y+3 == int_ymin) || (up && y == int_ymax)) {
+			if (!int_full) {
+				int_full = true;
+				in_int = true;
+			}
+			// set in_int to false?			
 		}
 
-		if (up)
-			y = y - 1;
-		else
-			y = y + 1;
+		// only update location if the intersection is unoccupied, or occupied by this truck
+		if (!int_full || (int_full && in_int)) {
+			if (y <= ymin)
+				up = false;
+			else if (y >= ymax)
+				up = true;
+			if (up)
+				y = y - 1;
+			else
+				y = y + 1;
+		}
 
+		// check if we have left intersection so other truck can enter
+		if ((!up && y == int_ymax) || (up && y+3 == int_ymin)) {
+			int_full = false;
+			in_int = false;
+		}
+
+		std::unique_lock<std::mutex> lock(cv_mutex);
 		// checking if this truck is trying to enter the intersection
 		if (up && y == int_ymax) {
 			std::cout << "flour truck entering from bottom" << std::endl;
@@ -350,7 +368,6 @@ void move_truckv(DisplayObject truck, int ymin, int ymax, int xmin, int xmax)
 		if (!up && y+3 == int_ymin) {
 			std::cout << "flour truck entering from top" << std::endl;
 		}
-		
 		truck.draw(oldy = y, oldx = x);
 		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay);
 		cv.wait_until(lock, timeout, [&](){return go == true;});
@@ -362,22 +379,36 @@ void move_truckh(DisplayObject truck, int ymin, int ymax, int xmin, int xmax)
 {
 	int y = ymax, oldy = ymax, x = xmin, oldx = xmin;
 	bool right = true; // true if truck is currently moving "right"
+	bool in_int = false;
 	
 	while (true) {
-		std::unique_lock<std::mutex> lock(cv_mutex);
+		// std::unique_lock<std::mutex> lock(cv_mutex);
 		go = false;
-		if (x <= xmin) {
-			right = true;
-		}
-		else if (x >= xmax) {
-			right = false;
+
+		if ((right && x+12 == int_xmin) || (!right && x == int_xmax)) {
+			if (!int_full) {
+				int_full = true;
+				in_int = true;
+			}
 		}
 
-		if (right)
-			x = x + 1;
-		else
-			x = x - 1;	
+		if (!int_full || (int_full && in_int)) {
+			if (x <= xmin)
+				right = true;
+			else if (x >= xmax)
+				right = false;
+			if (right)
+				x = x + 1;
+			else
+				x = x - 1;	
+		}
 
+		if ((right && x == int_xmax) || (!right && x+12 == int_xmin)) {
+			int_full = false;
+			in_int = false;
+		}
+	
+		std::unique_lock<std::mutex> lock(cv_mutex);
 		// checking if this truck is trying to enter the intersection
 		if (right && x+12 == int_xmin) {
 			std::cout << "egg truck entering from left" << std::endl;
