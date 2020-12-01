@@ -97,11 +97,11 @@ DisplayObject child("\
 
 // barn where butter and eggs are stored
 DisplayObject egg_barn("\
-Butter/Egg#\
    __ ^#\
   /  /  \\#\
  |  | _  |#\
- |  |[ ] |", 3);
+ |  |[ ] |#\
+ Butter/Egg", 3);
 
 // barn where flour and sugar are stored
 DisplayObject flour_barn("\
@@ -235,10 +235,10 @@ int bakery_y = 35;
 int bakery_x = 75;
 int flourbarn_y = 1;
 int flourbarn_x = 25;
-int eggbarn_y = 10;
-int eggbarn_x = 1;
-int int_ymin = eggbarn_y+26;
-int int_ymax = eggbarn_y+26+4;
+int eggbarn_y = 33;//10;
+int eggbarn_x = 1;//1;
+int int_ymin = eggbarn_y+3;//26;
+int int_ymax = eggbarn_y+7;//26+4;
 int int_xmin = eggbarn_x+36;
 int int_xmax = eggbarn_x+36+15;
 
@@ -246,9 +246,21 @@ std::condition_variable cv; // condition variable controlling drawing and redisp
 std::mutex cv_mutex;
 std::atomic<bool> go(false); // set to 1 while we are redisplaying
 
-std::condition_variable int_cv; // controls access to truck intersection
-std::mutex int_mutex;
 std::atomic<bool> int_full(false); // set to true if a truck is in the intersection
+
+// control number of eggs in each of the three nests
+std::atomic<int> eggs_n1(0);
+std::atomic<int> eggs_n2(0);
+std::atomic<int> eggs_n3(0);
+
+// control access to nests and the lanes between them (true if occupied)
+std::atomic<bool> lane1(false);
+std::atomic<bool> lane2(false);
+std::atomic<bool> lane3(false);
+std::atomic<bool> nest1_occ(false);
+std::atomic<bool> nest2_occ(false);
+std::atomic<bool> nest3_occ(false);
+
 
 void redisplay()
 {
@@ -327,6 +339,9 @@ void move_truckv(DisplayObject truck, int ymin, int ymax, int xmin, int xmax)
 {
 	int y = ymax, oldy = ymax, x = xmin, oldx = xmin;
 	bool up = true; // true if truck is currently moving "up" (with respect to the view of the screen)
+	bool down = false;
+	bool right = false; // true if truck is moving right
+	bool left = false;
 	bool in_int = false; // true if this truck is in the intersection
 	
 	while (true) {
@@ -339,21 +354,48 @@ void move_truckv(DisplayObject truck, int ymin, int ymax, int xmin, int xmax)
 			if (!int_full) {
 				int_full = true;
 				in_int = true;
-			}
-			// set in_int to false?			
+			}	
 		}
 
 		// only update location if the intersection is unoccupied, or occupied by this truck, or if
 		// we are not near the intersection
 		if (!int_full || (int_full && in_int) || !entering) {
-			if (y <= ymin)
+			if (y <= ymin) {
 				up = false;
-			else if (y >= ymax)
-				up = true;
+				down = true;
+				left = false;
+				right = false;
+			}
+			else if (y >= ymax) {
+				if (down) {
+					right = true;
+					left = false;
+					up = false;
+					down = false;
+				}
+				else {
+					if (x == xmin) {
+						up = true;
+						down = false;
+						right = false;
+						left = false;
+					} 
+					else if (x == xmax) {
+						left = true;
+						right = false;
+						down = false;
+						up = false;
+					}
+				}
+			}
 			if (up)
 				y = y - 1;
-			else
+			else if (down)
 				y = y + 1;
+			else if (right)
+				x = x + 1;
+			else if (left)
+				x = x - 1;
 		}
 
 		// check if we have left intersection so other truck can enter
@@ -363,13 +405,6 @@ void move_truckv(DisplayObject truck, int ymin, int ymax, int xmin, int xmax)
 		}
 
 		std::unique_lock<std::mutex> lock(cv_mutex);
-		// checking if this truck is trying to enter the intersection
-		if (up && y == int_ymax) {
-			std::cout << "flour truck entering from bottom" << std::endl;
-		}
-		if (!up && y+3 == int_ymin) {
-			std::cout << "flour truck entering from top" << std::endl;
-		}
 		truck.draw(oldy = y, oldx = x);
 		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay);
 		cv.wait_until(lock, timeout, [&](){return go == true;});
@@ -413,12 +448,12 @@ void move_truckh(DisplayObject truck, int ymin, int ymax, int xmin, int xmax)
 	
 		std::unique_lock<std::mutex> lock(cv_mutex);
 		// checking if this truck is trying to enter the intersection
-		if (right && x+12 == int_xmin) {
-			std::cout << "egg truck entering from left" << std::endl;
-		}
-		if (!right && x == int_xmax) {
-			std::cout << "egg truck entering from right" << std::endl;
-		}	
+		// if (right && x+12 == int_xmin) {
+		// 	std::cout << "egg truck entering from left" << std::endl;
+		// }
+		// if (!right && x == int_xmax) {
+		// 	std::cout << "egg truck entering from right" << std::endl;
+		// }	
 		
 		truck.draw(oldy = y, oldx = x);
 		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay);
@@ -554,19 +589,19 @@ int main(int argc, char** argv)
 	egg_barn.draw(eggbarn_y, eggbarn_x);
 	flour_barn.draw(flourbarn_y, flourbarn_x);
 	bakery.draw(bakery_y, bakery_x);
-	cow.draw(eggbarn_y+23, eggbarn_x);
-	intersection.draw(eggbarn_y+26, eggbarn_x+36);
+	cow.draw(eggbarn_y, eggbarn_x+24);
+	intersection.draw(eggbarn_y+3, eggbarn_x+36);
 	
 	// TODO: add PATH data structure, use relative locations rather than absolute locations
 	std::thread rd(redisplay);
-	std::thread c1(move_chicken, chicken1, 1, eggbarn_y+6, eggbarn_y+12, eggbarn_x, eggbarn_x+30);
-	std::thread c2(move_chicken, chicken2, 2, eggbarn_y+6, eggbarn_y+12, eggbarn_x+15, eggbarn_x+30);
-	std::thread tf(move_truckv, flour_truck, flourbarn_y, bakery_y+10, flourbarn_x+12, flourbarn_x+13);
-	std::thread te(move_truckh, egg_truck, eggbarn_y+26, eggbarn_y+27, eggbarn_x, bakery_x-15);
-	std::thread n1(fill_nest, nest1, eggbarn_y+15, eggbarn_x, 1);
-	std::thread n2(fill_nest, nest2, eggbarn_y+15, eggbarn_x+12, 2);
-	std::thread n3(fill_nest, nest3, eggbarn_y+15, eggbarn_x+24, 3);
-	std::thread fa(move_farmer, farmer, eggbarn_y+18, eggbarn_y+22, eggbarn_x+8, eggbarn_x+10);
+	std::thread c1(move_chicken, chicken1, 1, eggbarn_y-17, eggbarn_y-11, eggbarn_x, eggbarn_x+30);
+	std::thread c2(move_chicken, chicken2, 2, eggbarn_y-17, eggbarn_y-11, eggbarn_x+15, eggbarn_x+30);
+	std::thread tf(move_truckv, flour_truck, flourbarn_y, bakery_y+12, flourbarn_x+12, bakery_x-15);
+	std::thread te(move_truckh, egg_truck, eggbarn_y+3, eggbarn_y+4, eggbarn_x+12, bakery_x-15);
+	std::thread n1(fill_nest, nest1, eggbarn_y-8, eggbarn_x, 1);
+	std::thread n2(fill_nest, nest2, eggbarn_y-8, eggbarn_x+12, 2);
+	std::thread n3(fill_nest, nest3, eggbarn_y-8, eggbarn_x+24, 3);
+	std::thread fa(move_farmer, farmer, eggbarn_y-5, eggbarn_y-1, eggbarn_x+8, eggbarn_x+10);
 	std::thread e1(move_conveyor, eggs1,   bakery_y+4,  bakery_x-7, 17, 0);
 	std::thread e2(move_conveyor, eggs2,   bakery_y+4,  bakery_x-7, 8, 18);
 	std::thread f1(move_conveyor, flour1,  bakery_y+8-1,  bakery_x-7, 17, 0);
