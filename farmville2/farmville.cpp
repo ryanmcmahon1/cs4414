@@ -254,13 +254,10 @@ std::atomic<int> eggs_n2(0);
 std::atomic<int> eggs_n3(0);
 
 // control access to nests and the lanes between them (true if occupied)
-std::atomic<bool> lane1(false);
-std::atomic<bool> lane2(false);
-std::atomic<bool> lane3(false);
-std::atomic<bool> nest1_occ(false);
-std::atomic<bool> nest2_occ(false);
-std::atomic<bool> nest3_occ(false);
-
+std::atomic<bool> l1_full(true);
+std::atomic<bool> l2_full(true);
+std::atomic<bool> n1_full(false);
+std::atomic<bool> n2_full(false);
 
 void redisplay()
 {
@@ -284,15 +281,240 @@ void redisplay()
 // int count = 0;
 std::atomic<int> count(0);
 
-// moves a chicken around randomly
+// x and y positions of each nest
+int n1_x = eggbarn_x-1;
+int n2_x = eggbarn_x-1+12;
+int n_y  = eggbarn_y-11;
+
+// chicken dimensions
+int ch = 3;
+int cw = 4;
+
+int l2_y = n_y - (ch + 2);
+
 void move_chicken(DisplayObject chicken, int num, int ymin, int ymax, int xmin, int xmax)
 {
-	int y = 10*num, oldy = 10*num, x = 10*num, oldx = 10*num;
+	// chicken 1 initially in lane1, chicken 2 currently in lane2
+	int y = n_y, oldy = n_y, x = n1_x+cw + (12*(num-1)), oldx = n1_x+cw + (12*(num-1));
+	bool right = false, left = false, up = false, down = false;
+	bool in_l1 = false, in_l2 = false, in_l3 = false, in_n1 = false, in_n2 = false, in_n3 = false;
+	bool entering = false, leaving = false;
+	int egg_count = 0;
+
+	if (num == 1) {
+		in_l1 = true;
+		right = true;
+	}
+	else if (num == 2) {
+		in_l2 = true;
+		left = true;
+	}
+
 	while (true) {
 		std::unique_lock<std::mutex> lock(cv_mutex);
 		go = false;
-		y = std::min(std::max(ymin, y + std::rand() % 3 - 1), ymax);
-		x = std::min(std::max(xmin, y + std::rand() % 5 - 2), xmax);
+
+		bool in_lane = in_l1 || in_l2; // true if this chicken is occupying a lane
+		bool in_nest = in_n1 || in_n2; // true if this chicken is occupying a nest
+
+		if (in_lane && !in_nest) {
+
+			// check if we are in a critical position or not (about to enter a nest)
+			int to_nest = 0;
+			bool in_crit = false;
+			if (in_l1) {
+				if (right && x == n2_x-cw && y == n_y) {
+					in_crit = true;
+					to_nest = 2;
+				}
+				else if (left && x == n1_x+cw && y == n_y) {
+					in_crit = true;
+					to_nest = 1;
+				}
+				else {
+					in_crit = false;
+				}
+			}
+			else if (in_l2) {
+				if (down && x == n1_x && y == n_y+ch) {
+					in_crit = true;
+					to_nest = 1;
+				}
+				else if  (down && x == n2_x && y == n_y+ch) {
+					in_crit = true;
+					to_nest = 2;
+				}
+				else {
+					in_crit = false;
+				}
+			}
+
+			// if not in critical position, continue moving in same direction
+			if (!in_crit) {
+				if (in_l2 && y == l2_y) {
+					if (x == n1_x) {
+						if (up) {
+							up = false, left = false, down = false;
+							right = true;
+						}
+						else if (left) {
+							left = false, up = false, right = false;
+							down = true;
+						}
+					}
+					else if (x == n2_x) {
+						if (up) {
+							up = false, right = false, down = false;
+							left = true;
+						}
+						else if (right) {
+							right = false, up = false, left = false;
+							down = true;
+						}
+					}
+				}
+				if (up)
+					y = y - 1;
+				else if (down)
+					y = y + 1;
+				else if (right)
+					x = x + 1;
+				else if (left)
+					x = x - 1;
+			}
+
+			// if in critical position, check if nest is full or empty
+			else {
+				if (to_nest == 1) {
+					if (!n1_full) {
+						n1_full = true;
+						in_n1 = true;
+						entering = true;
+					}
+				}
+				else if (to_nest == 2) {
+					if (!n2_full) {
+						n2_full = true;
+						in_n2 = true;
+						entering = true;
+					}
+				}
+			}
+		}
+
+		in_nest = in_n1 || in_n2;
+		in_lane = in_l1 || in_l2;
+		if (in_lane && in_nest) {
+			if (entering && !leaving) {
+				if (in_n1) {
+					// check if we are in final position for n1
+					if (x == n1_x && y == n_y) {
+						entering = false;
+						in_l1 = false;
+						l1_full = false;
+						up = false, right = false, down = false, left = false;
+						// set number of eggs to lay
+					}
+				}
+				else if (in_n2) {
+					// check if we are in final position for n2
+					if (x == n2_x && y == n_y) {
+						entering = false;
+						in_l2 = false;
+						l2_full = false;
+						up = false, right = false, down = false, left = false;
+						// set number of eggs to lay
+						egg_count = 3;
+					}
+				}
+				// update location if we are still in process of entering nest
+				if (entering) {
+					if (up)
+						y = y - 1;
+					else if (down)
+						y = y + 1;
+					else if (right)
+						x = x + 1;
+					else if (left)
+						x = x - 1;
+				}
+			}
+			else if (leaving && !entering) {
+				if (in_n1 && in_l1 && x == n1_x+cw && y == n_y) {
+					leaving = false;
+					in_l1 = false;
+					l1_full = false;
+				}
+				else if (in_n1 && in_l2 && x == n1_x && y == n_y+ch) {
+					leaving = false;
+					in_l2 = false;
+					l2_full = false;
+				}
+				else if (in_n2 && in_l1 && x == n2_x-cw && y == n_y) {
+					leaving = false;
+					in_l1 = false;
+					l1_full = false;
+				}
+				else if (in_n2 && in_l2 && x == n2_x && y == n_y+ch) {
+					leaving = false;
+					in_l2 = false;
+					l2_full = false;
+				}
+
+				// update location if we are still in process of leaving nest
+				if (leaving) {
+					if (up)
+						y = y - 1;
+					else if (down)
+						y = y + 1;
+					else if (right)
+						x = x + 1;
+					else if (left)
+						x = x - 1;
+			}
+		}
+		in_nest = in_n1 || in_n2;
+		in_lane = in_l1 || in_l2;
+		else if (!in_lane && in_nest && !entering && !leaving) {
+			egg_count--;
+			if (egg_count == 0) {
+				// select availble lane, set leaving to true
+				leaving = true;
+				entering = false;
+				int new_lane = 0;
+				if (!l1_full && !l2_full) {
+					int choice = rand() % 2;
+					if (choice)
+						new_lane = 1;
+					else
+						new_lane = 2;
+				}
+				else if (!l1_full)
+					new_lane = 1;
+				else if (!l2_full)
+					new_lane = 2;
+
+				if (new_lane == 1) {
+					l1_full = true;
+					in_l1 = true;
+					if (in_n1) {
+						right = true, left = false, up = false, down = false;
+					}
+					else if (in_n2) {
+						left = true, right = false, up = false, down = false;
+					}
+				}
+				else if (new_lane == 2) {
+					l2_full = true;
+					in_l2 = true;
+					up = true, left = false, down = false, right = false;		
+				}
+			}
+			// else if (egg_count > 0) {
+			// 	// TODO: add eggs
+			// }
+		}
+
 		chicken.draw(oldy = y, oldx = x);
 		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay);
 		cv.wait_until(lock, timeout, [&](){return go == true;});
