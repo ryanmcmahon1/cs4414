@@ -221,14 +221,14 @@ DisplayObject(\
 // bars of butter, and so forth.  Because we know the cake batter recipe (see hw3 handout), we should be able to 
 // track that all products are accounted for: They are either visible on the screen, or became "sold cakes"
 
-int eggs_laid, eggs_used;
-int butter_produced, butter_used;
-int sugar_produced, sugar_used;
-int flour_produced, flour_used;
-int cakes_produced, cakes_sold;
+std::atomic<int> eggs_laid, eggs_used;
+std::atomic<int> butter_produced, butter_used;
+std::atomic<int> sugar_produced, sugar_used;
+std::atomic<int> flour_produced, flour_used;
+std::atomic<int> cakes_produced, cakes_sold;
 
 int wait = 1000000;
-int delay = 200;
+int delay = 150;
 
 // Position of bakery, so that we can keep track of where to put items inside the bakery
 int bakery_y = 35;
@@ -248,16 +248,26 @@ std::atomic<bool> go(false); // set to 1 while we are redisplaying
 
 std::atomic<bool> int_full(false); // set to true if a truck is in the intersection
 
-// control number of eggs in each of the three nests
-std::atomic<int> eggs_n1(0);
-std::atomic<int> eggs_n2(0);
-std::atomic<int> eggs_n3(0);
+// // control number of eggs in each of the three nests
+// std::atomic<int> eggs_n1(0);
+// std::atomic<int> eggs_n2(0);
+// std::atomic<int> eggs_n3(0);
+std::atomic<int> nest1_eggs(0);
+std::atomic<int> nest2_eggs(0);
+std::atomic<int> eggs_collected(0);
+std::atomic<int> butter_collected(0);
 
 // control access to nests and the lanes between them (true if occupied)
 std::atomic<bool> l1_full(true);
-std::atomic<bool> l2_full(true);
+std::atomic<bool> l2_full(false);
 std::atomic<bool> n1_full(false);
 std::atomic<bool> n2_full(false);
+
+// number of each container currently on conveyor belt
+// std::atomic<int> conveyor_eggs(0);
+// std::atomic<int> conveyor_butter(0);
+// std::atomic<int> conveyor_sugar(0);
+// std::atomic<int> conveyor_flour(0);
 
 void redisplay()
 {
@@ -266,24 +276,24 @@ void redisplay()
 		{
 			std::lock_guard<std::mutex> lock(cv_mutex);
 			DisplayObject::redisplay();
-			std::cout << "Eggs: Laid=" << eggs_laid << ", Used=" << eggs_used << 
-							" Butter: Sold=" << butter_produced << ", Used=" << butter_used <<
+			std::cout << "Eggs: Laid=" << eggs_laid << ", Collected=" << eggs_collected << ", Used=" << eggs_used << 
+							" Butter: Collected=" << butter_collected << " Sold=" << butter_produced << ", Used=" << butter_used <<
 							" Sugar: Sold=" << sugar_produced << ", Used=" << sugar_used <<
 							" Flour: Sold=" << flour_produced << ", Used=" << flour_used << 
 							" Cakes: Baked=" << cakes_produced << ", Sold=" << cakes_sold << std::endl;
+			// std::cout << "n1_full=" << n1_full << ", n2_full=" << n2_full << ", l1_full=" << l1_full << ", l2_full=" << l2_full << std::endl;
 			go = true;
 		}
 		cv.notify_all();
 	}
 }
 
-
 // int count = 0;
 std::atomic<int> count(0);
 
 // x and y positions of each nest
 int n1_x = eggbarn_x-1;
-int n2_x = eggbarn_x-1+12;
+int n2_x = eggbarn_x-1+24;
 int n_y  = eggbarn_y-11;
 
 // chicken dimensions
@@ -295,9 +305,9 @@ int l2_y = n_y - (ch + 2);
 void move_chicken(DisplayObject chicken, int num, int ymin, int ymax, int xmin, int xmax)
 {
 	// chicken 1 initially in lane1, chicken 2 currently in lane2
-	int y = n_y, oldy = n_y, x = n1_x+cw + (12*(num-1)), oldx = n1_x+cw + (12*(num-1));
+	int y = n_y, oldy = n_y, x = n1_x+cw+2, oldx = n1_x+cw+2;
 	bool right = false, left = false, up = false, down = false;
-	bool in_l1 = false, in_l2 = false, in_l3 = false, in_n1 = false, in_n2 = false, in_n3 = false;
+	bool in_l1 = false, in_l2 = false, in_n1 = false, in_n2 = false;
 	bool entering = false, leaving = false;
 	int egg_count = 0;
 
@@ -308,6 +318,7 @@ void move_chicken(DisplayObject chicken, int num, int ymin, int ymax, int xmin, 
 	else if (num == 2) {
 		in_l2 = true;
 		left = true;
+		y = l2_y;
 	}
 
 	while (true) {
@@ -317,17 +328,19 @@ void move_chicken(DisplayObject chicken, int num, int ymin, int ymax, int xmin, 
 		bool in_lane = in_l1 || in_l2; // true if this chicken is occupying a lane
 		bool in_nest = in_n1 || in_n2; // true if this chicken is occupying a nest
 
+
+		// std::cout << "current x,y = " << x << ", " << y << "; final y = " << n_y << std::endl;
 		if (in_lane && !in_nest) {
 
 			// check if we are in a critical position or not (about to enter a nest)
 			int to_nest = 0;
 			bool in_crit = false;
 			if (in_l1) {
-				if (right && x == n2_x-cw && y == n_y) {
+				if (right && x == n2_x-cw && y >= n_y) {
 					in_crit = true;
 					to_nest = 2;
 				}
-				else if (left && x == n1_x+cw && y == n_y) {
+				else if (left && x == n1_x+cw && y >= n_y) {
 					in_crit = true;
 					to_nest = 1;
 				}
@@ -336,11 +349,11 @@ void move_chicken(DisplayObject chicken, int num, int ymin, int ymax, int xmin, 
 				}
 			}
 			else if (in_l2) {
-				if (down && x == n1_x && y == n_y+ch) {
+				if (down && x == n1_x && y == n_y-ch) {
 					in_crit = true;
 					to_nest = 1;
 				}
-				else if  (down && x == n2_x && y == n_y+ch) {
+				else if (down && x == n2_x && y == n_y-ch) {
 					in_crit = true;
 					to_nest = 2;
 				}
@@ -402,29 +415,45 @@ void move_chicken(DisplayObject chicken, int num, int ymin, int ymax, int xmin, 
 			}
 		}
 
-		in_nest = in_n1 || in_n2;
-		in_lane = in_l1 || in_l2;
-		if (in_lane && in_nest) {
+		else if ((in_n1 || in_n2) && (in_l1 || in_l2)) {
+			// std::cout <<"entering is " << entering << std::endl;
 			if (entering && !leaving) {
 				if (in_n1) {
 					// check if we are in final position for n1
-					if (x == n1_x && y == n_y) {
+					if (x == n1_x && y >= n_y) {
+						y = n_y;
+						// std::cout << "in final position for n1" << std::endl;
 						entering = false;
-						in_l1 = false;
-						l1_full = false;
+						if (in_l1) {
+							in_l1 = false;
+							l1_full = false;
+						}
+						else if (in_l2) {
+							in_l2 = false;
+							l2_full = false;
+						}
 						up = false, right = false, down = false, left = false;
 						// set number of eggs to lay
+						egg_count = (rand() % 3) + 1;
 					}
 				}
 				else if (in_n2) {
 					// check if we are in final position for n2
-					if (x == n2_x && y == n_y) {
+					if (x == n2_x && y >= n_y) {
+						y = n_y;
+						// std::cout << "in final position for n2" << std::endl;
 						entering = false;
-						in_l2 = false;
-						l2_full = false;
+						if (in_l1) {
+							in_l1 = false;
+							l1_full = false;
+						}
+						else if (in_l2) {
+							in_l2 = false;
+							l2_full = false;
+						}
 						up = false, right = false, down = false, left = false;
 						// set number of eggs to lay
-						egg_count = 3;
+						egg_count = (rand() % 3) + 1;
 					}
 				}
 				// update location if we are still in process of entering nest
@@ -440,25 +469,29 @@ void move_chicken(DisplayObject chicken, int num, int ymin, int ymax, int xmin, 
 				}
 			}
 			else if (leaving && !entering) {
+				// std::cout << "in_n2, in_l2 = " << in_n2 << ", " << in_l2 << ", leaving = " << leaving << ", entering = " << entering << std::endl;
+				// std::cout << n_y+ch << ", " << y << std::endl;
 				if (in_n1 && in_l1 && x == n1_x+cw && y == n_y) {
 					leaving = false;
-					in_l1 = false;
-					l1_full = false;
+					in_n1 = false;
+					n1_full = false;
 				}
-				else if (in_n1 && in_l2 && x == n1_x && y == n_y+ch) {
+				else if (in_n1 && in_l2 && x == n1_x && y <= n_y+ch) {
+					y = n_y;
 					leaving = false;
-					in_l2 = false;
-					l2_full = false;
+					in_n1 = false;
+					n1_full = false;
 				}
 				else if (in_n2 && in_l1 && x == n2_x-cw && y == n_y) {
 					leaving = false;
-					in_l1 = false;
-					l1_full = false;
+					in_n2 = false;
+					n2_full = false;
 				}
-				else if (in_n2 && in_l2 && x == n2_x && y == n_y+ch) {
+				else if (in_n2 && in_l2 && x == n2_x && y <= n_y+ch) {
+					y = n_y;
 					leaving = false;
-					in_l2 = false;
-					l2_full = false;
+					in_n2 = false;
+					n2_full = false;
 				}
 
 				// update location if we are still in process of leaving nest
@@ -471,13 +504,13 @@ void move_chicken(DisplayObject chicken, int num, int ymin, int ymax, int xmin, 
 						x = x + 1;
 					else if (left)
 						x = x - 1;
+				}
 			}
 		}
-		in_nest = in_n1 || in_n2;
-		in_lane = in_l1 || in_l2;
-		else if (!in_lane && in_nest && !entering && !leaving) {
+		else if (!(in_l1 || in_l2) && (in_n1 || in_n2) && !entering && !leaving) {
 			egg_count--;
-			if (egg_count == 0) {
+			// std::cout << "egg count = " << egg_count << std::endl;
+			if (egg_count <= 0) {
 				// select availble lane, set leaving to true
 				leaving = true;
 				entering = false;
@@ -510,13 +543,21 @@ void move_chicken(DisplayObject chicken, int num, int ymin, int ymax, int xmin, 
 					up = true, left = false, down = false, right = false;		
 				}
 			}
-			// else if (egg_count > 0) {
-			// 	// TODO: add eggs
-			// }
+			else if (egg_count > 0) {
+				// TODO: add eggs
+				if (in_n1 && nest1_eggs <= 3) {
+					eggs_laid++;
+					nest1_eggs++;
+				}
+				else if (in_n2 && nest2_eggs <= 3) {
+					eggs_laid++;
+					nest2_eggs++;
+				}
+			}
 		}
 
 		chicken.draw(oldy = y, oldx = x);
-		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay);
+		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay*2);
 		cv.wait_until(lock, timeout, [&](){return go == true;});
 	}
 }
@@ -536,7 +577,7 @@ void move_conveyor(DisplayObject product, int y0, int x0, int dist, int time_to_
 				x = x + 1;
 			product.draw(oldy = y, oldx = x);
 		}
-		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay);
+		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay*2);
 		cv.wait_until(lock, timeout, [&](){return go == true;});
 	}
 }
@@ -544,14 +585,62 @@ void move_conveyor(DisplayObject product, int y0, int x0, int dist, int time_to_
 // moves the farmer around randomly
 void move_farmer(DisplayObject farmer, int ymin, int ymax, int xmin, int xmax)
 {
-	int y = 19, oldy = 19, x = 5, oldx = 5;
+	int y = ymin, oldy = ymin, x = xmin+5, oldx = xmin+5;
+	bool right = true, left = false, up = false, down = false;
+	bool waiting = false;
 	while (true) {
 		std::unique_lock<std::mutex> lock(cv_mutex);
 		go = false;
-		y = std::min(std::max(ymin, y + std::rand() % 3 - 1), ymax);
-		x = std::min(std::max(xmin, y + std::rand() % 7 - 3), xmax);
+
+		if ((right && x == xmax) || (waiting && x == xmax && y <= ymin)) {
+			if (n2_full) {
+				waiting = true;
+				right = false;
+			}
+			else {
+				eggs_collected += nest2_eggs;
+				nest2_eggs = 0;
+				// TODO: update egg statistics
+				right = false;
+				down = true;
+				waiting = false;
+			}
+		}
+		else if (down && y >= ymax) {
+			butter_collected += 2;
+			down = false;
+			left = true;
+		}
+		else if (left && x == xmin) {
+			left = false;
+			up = true;
+		}
+		else if ((up && y <= ymin) || (waiting && x == xmin && y <= ymin)) {
+			if (n1_full) {
+				waiting = true;
+				up = false;
+			}
+			else {
+				eggs_collected += nest1_eggs;
+				nest1_eggs = 0;
+				// TODO: update egg statistics
+				up = false;
+				right = true;
+				waiting = false;
+			}
+		}
+
+		if (up)
+			y = y - 1;
+		else if (down)
+			y = y + 1;
+		else if (right)
+			x = x + 1;
+		else if (left)
+			x = x - 1;
+		
 		farmer.draw(oldy = y, oldx = x);
-		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay);
+		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay*2);
 		cv.wait_until(lock, timeout, [&](){return go == true;});
 	}
 }
@@ -565,6 +654,8 @@ void move_truckv(DisplayObject truck, int ymin, int ymax, int xmin, int xmax)
 	bool right = false; // true if truck is moving right
 	bool left = false;
 	bool in_int = false; // true if this truck is in the intersection
+	// number of flour and sugar containers currently in this truck
+	int num_flour = 0, num_sugar = 0;
 	
 	while (true) {
 		// std::unique_lock<std::mutex> lock(cv_mutex);
@@ -587,6 +678,8 @@ void move_truckv(DisplayObject truck, int ymin, int ymax, int xmin, int xmax)
 				down = true;
 				left = false;
 				right = false;
+				num_flour = 3;
+				num_sugar = 3;
 			}
 			else if (y >= ymax) {
 				if (down) {
@@ -603,10 +696,17 @@ void move_truckv(DisplayObject truck, int ymin, int ymax, int xmin, int xmax)
 						left = false;
 					} 
 					else if (x == xmax) {
-						left = true;
-						right = false;
-						down = false;
-						up = false;
+						if (num_flour == 0 && num_sugar == 0) {
+							left = true;
+							right = false;
+							down = false;
+							up = false;
+						}
+						else {
+							num_flour--;
+							num_sugar--;
+							left = false, right = false, down = false, up = false;
+						}
 					}
 				}
 			}
@@ -628,7 +728,7 @@ void move_truckv(DisplayObject truck, int ymin, int ymax, int xmin, int xmax)
 
 		std::unique_lock<std::mutex> lock(cv_mutex);
 		truck.draw(oldy = y, oldx = x);
-		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay);
+		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay*2);
 		cv.wait_until(lock, timeout, [&](){return go == true;});
 	}
 }
@@ -637,14 +737,18 @@ void move_truckv(DisplayObject truck, int ymin, int ymax, int xmin, int xmax)
 void move_truckh(DisplayObject truck, int ymin, int ymax, int xmin, int xmax)
 {
 	int y = ymax, oldy = ymax, x = xmin, oldx = xmin;
-	bool right = true; // true if truck is currently moving "right"
+	bool right = true, left = false;; // true if truck is currently moving "right"
 	bool in_int = false;
+	// bool waiting = false;
+
+	// number of crates of eggs and package of butter currently in truck
+	int num_crates = 0, num_butter = 0;
 	
 	while (true) {
 		// std::unique_lock<std::mutex> lock(cv_mutex);
 		go = false;
 
-		bool entering = (right && x+14 == int_xmin) || (!right && x == int_xmax);
+		bool entering = (right && x+14 == int_xmin) || (left && x == int_xmax);
 		if (entering) {
 			if (!int_full) {
 				int_full = true;
@@ -653,46 +757,68 @@ void move_truckh(DisplayObject truck, int ymin, int ymax, int xmin, int xmax)
 		}
 
 		if (!int_full || (int_full && in_int) || !entering) {
-			if (x <= xmin)
-				right = true;
-			else if (x >= xmax)
-				right = false;
+			if (x <= xmin) {
+				if (eggs_collected >= 9 && butter_collected >= 3) {
+					eggs_collected -= 9;
+					butter_collected -= 3;
+					num_crates = 3;
+					num_butter = 3;
+					right = true;
+					left = false;
+				}
+				else {
+					right = false, left = false;
+				}
+			}
+			else if (x >= xmax) {
+				// add condition for waiting to drop off at patisserie
+				if (num_crates == 0 && num_butter == 0) {
+					right = false;
+					left = true;
+				}
+				else {
+					num_crates--;
+					num_butter--;
+					right = false, left = false;
+				}
+			}
 			if (right)
 				x = x + 1;
-			else
+			else if (left)
 				x = x - 1;	
 		}
 
-		if ((right && x == int_xmax) || (!right && x+14 == int_xmin)) {
+		if ((right && x == int_xmax) || (left && x+14 == int_xmin)) {
 			int_full = false;
 			in_int = false;
 		}
 	
 		std::unique_lock<std::mutex> lock(cv_mutex);
-		// checking if this truck is trying to enter the intersection
-		// if (right && x+12 == int_xmin) {
-		// 	std::cout << "egg truck entering from left" << std::endl;
-		// }
-		// if (!right && x == int_xmax) {
-		// 	std::cout << "egg truck entering from right" << std::endl;
-		// }	
-		
 		truck.draw(oldy = y, oldx = x);
-		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay);
+		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay*2);
 		cv.wait_until(lock, timeout, [&](){return go == true;});
 	}
 }
 
 // adds an egg to the nest each iteration
 void fill_nest(DisplayObject nest[4], int y, int x, int num) {
-	int n = num, l = 0;
+	// int n = num, l = 0;
 	while (true) {
-		if (n % 2 == 0)
-			l++;
 		std::unique_lock<std::mutex> lock(cv_mutex);
-		nest[l % 4].draw(y, x);
-		n++;
-		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay);
+		if (num == 1) {
+			if (nest1_eggs >= 0 && nest1_eggs <= 3)
+				nest[nest1_eggs].draw(y,x);
+		}
+		else if (num == 2) {
+			if (nest2_eggs >= 0 && nest2_eggs <= 3)
+				nest[nest2_eggs].draw(y,x);
+		}
+		// if (n % 2 == 0)
+		// 	l++;
+		// std::unique_lock<std::mutex> lock(cv_mutex);
+		// nest[l % 4].draw(y, x);
+		// n++;
+		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay*2);
 		cv.wait_until(lock, timeout, [&](){return go == true;});
 	}
 }
@@ -705,7 +831,7 @@ void add_cakes(DisplayObject cakes[7], int y, int x) {
 		std::unique_lock<std::mutex> lock(cv_mutex);
 		cakes[c % 7].draw(y, x);
 		k++;
-		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay);
+		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay*2);
 		cv.wait_until(lock, timeout, [&](){return go == true;});
 	}
 }
@@ -733,7 +859,7 @@ void fill_mixer(int y, int x) {
 		mixer_contents.draw(y, x);
 		if (mix_count <= 30)	
 			mix_count++;
-		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay);
+		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay*2);
 		cv.wait_until(lock, timeout, [&](){return go == true;});
 	}
 }
@@ -748,7 +874,7 @@ void draw_batter(int y, int x) {
 			batter.draw(y, x);
 		else
 			batter_count++;
-		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay);
+		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay*2);
 		cv.wait_until(lock, timeout, [&](){return go == true;});
 	}
 }
@@ -795,7 +921,7 @@ void move_children(DisplayObject child, int y0, int x0)
 				to_bakery = true;			
 		}
 		child.draw(y, x);
-		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay);
+		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay*2);
 		cv.wait_until(lock, timeout, [&](){return go == true;});
 	}
 }
@@ -821,17 +947,17 @@ int main(int argc, char** argv)
 	std::thread tf(move_truckv, flour_truck, flourbarn_y, bakery_y+12, flourbarn_x+12, bakery_x-15);
 	std::thread te(move_truckh, egg_truck, eggbarn_y+3, eggbarn_y+4, eggbarn_x+12, bakery_x-15);
 	std::thread n1(fill_nest, nest1, eggbarn_y-8, eggbarn_x, 1);
-	std::thread n2(fill_nest, nest2, eggbarn_y-8, eggbarn_x+12, 2);
-	std::thread n3(fill_nest, nest3, eggbarn_y-8, eggbarn_x+24, 3);
-	std::thread fa(move_farmer, farmer, eggbarn_y-5, eggbarn_y-1, eggbarn_x+8, eggbarn_x+10);
+	std::thread n2(fill_nest, nest2, eggbarn_y-8, eggbarn_x+24, 2);
+	// std::thread n3(fill_nest, nest3, eggbarn_y-8, eggbarn_x+24, 3);
+	std::thread fa(move_farmer, farmer, eggbarn_y-7, eggbarn_y-2, eggbarn_x, eggbarn_x+24);
 	std::thread e1(move_conveyor, eggs1,   bakery_y+4,  bakery_x-7, 17, 0);
 	std::thread e2(move_conveyor, eggs2,   bakery_y+4,  bakery_x-7, 8, 18);
-	std::thread f1(move_conveyor, flour1,  bakery_y+8-1,  bakery_x-7, 17, 0);
-	std::thread f2(move_conveyor, flour2,  bakery_y+8-1,  bakery_x-7, 8, 18);
+	std::thread b1(move_conveyor, butter1,  bakery_y+8,  bakery_x-7, 17, 0);
+	std::thread b2(move_conveyor, butter2,  bakery_y+8,  bakery_x-7, 8, 18);
 	std::thread s1(move_conveyor, sugar1,  bakery_y+12-1, bakery_x-7, 17, 0);
 	std::thread s2(move_conveyor, sugar2,  bakery_y+12-1, bakery_x-7, 8, 18);
-	std::thread b1(move_conveyor, butter1, bakery_y+16, bakery_x-7, 17, 0);
-	std::thread b2(move_conveyor, butter2, bakery_y+16, bakery_x-7, 8, 18);
+	std::thread f1(move_conveyor, flour1, bakery_y+15, bakery_x-7, 17, 0);
+	std::thread f2(move_conveyor, flour2, bakery_y+15, bakery_x-7, 8, 18);
 	std::thread mx(fill_mixer, bakery_y+16, bakery_x+22);
 	std::thread bt(draw_batter, bakery_y+9, bakery_x+24);
 	std::thread ck(add_cakes, cupcakes, bakery_y+5, bakery_x+30);
@@ -841,7 +967,7 @@ int main(int argc, char** argv)
 	std::thread ch4(move_children, DisplayObject(child), bakery_y+16, bakery_x+50);
 	std::thread ch5(move_children, DisplayObject(child), bakery_y+20, bakery_x+50);
 
-	c2.join();
+	// c2.join();
 	c1.join();
 	rd.join();
     return 0;
