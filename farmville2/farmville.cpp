@@ -228,7 +228,7 @@ std::atomic<int> flour_produced, flour_used;
 std::atomic<int> cakes_produced, cakes_sold;
 
 int wait = 1000000;
-int delay = 150;
+int delay = 500;
 
 // Position of bakery, so that we can keep track of where to put items inside the bakery
 int bakery_y = 35;
@@ -879,47 +879,108 @@ void draw_batter(int y, int x) {
 	}
 }
 
-void move_children(DisplayObject child, int y0, int x0)
+// controls which child is currently going to or from the bakery (only one at a time)
+std::atomic<int> child_to_bakery(0);
+// std::atomic<int> child_from_bakery(0);
+
+// destination (cupcake shop) for children to walk to
+int dest_y = bakery_y+6;
+int dest_x = bakery_x+44;
+int lx = dest_x+3;
+
+void move_children(DisplayObject child, int y0, int x0, int num)
 {
 	// each child will move to their destination and then back to their (x0,y0) at the same time-
 	// have to add synchronization later
-	int dest_y = bakery_y+6;
-	int dest_x = bakery_x+44;
 	child.draw(y0, x0);
-	bool to_bakery = true; // set to true while we are walking towards the bakery, false o.w.
+	bool to_bakery = false; // set to true while we are walking towards the bakery, false o.w.
+	bool from_bakery = false;
+	bool left = false, right = false, up = false, down = false;
 	int y = y0;
 	int x = x0;
+	int cakes = 0;
+
+	bool waiting = false;
 	while (true) {
 		std::unique_lock<std::mutex> lock(cv_mutex);
 		go = false;
-		if (to_bakery) {
-			if (x > dest_x)
-				x--;
-			else
-				x = dest_x;
-			if (y > dest_y)
-				y--;
-			else if (y < dest_y)
-				y++;
-			else
-				y = dest_y;
-			if (y == dest_y && x == dest_x)
-				to_bakery = false;			
+		// std::cout << "child " << num << " waiting in line";
+		// std::cout << child_to_bakery << std::endl;
+		
+		// all children are waiting in line, select one
+		if (child_to_bakery == 0) {
+			child_to_bakery = rand() % 5 + 1; // pick a child, 1 through 5
+			// if (child_to_bakery == num) {
+			// 	to_bakery = true, from_bakery = false;
+			// 	left = true;
+			// 	cakes = 6;
+			// }
 		}
-		else {
-			if (x < x0)
-				x++;
-			else
-				x = x0;
-			if (y > y0)
-				y--;
-			else if (y < y0)
-				y++;
-			else
-				y = dest_y;
-			if (y == y0 && x == x0)
-				to_bakery = true;			
+		// only update child location if it is the child selected from the line
+		else if (child_to_bakery == num) {
+			// std::cout << "x, y = " << x << ", " << y << std::endl;
+			// std::cout << "to, from = " << to_bakery << ", " << from_bakery << std::endl;
+			if (!to_bakery && !from_bakery) {
+				// std::cout << "setting to_bakery to true" << y << std::endl;
+				to_bakery = true, from_bakery = false;
+				left = true, right = false, down = false, up = false;
+				cakes = 6;				
+			}
+
+			else if (to_bakery) {
+				// move towards dest, once we arrive, take cakes and possibly wait
+				// std::cout << "moving towards bakery" << std::endl;
+				// std::cout << "left, right = " << left << ", " << right << std::endl;	
+				// std::cout << "x, y = " << x << ", " << y << std::endl;			
+				if (left && x == lx) {
+					left = false, up = true, down = false, right = false;
+				}
+				else if (up && y == dest_y) {
+					up = false, left = true, down = false, right = false;
+				}
+				else if (left && x == dest_x) {
+					left = false, up = false, down = false, right = false;
+					// check if cupcakes are ready
+					waiting = true;
+				}
+				else if (waiting && x == dest_x) {
+					cakes--;
+					if (cakes <= 0)  {
+						waiting = false;
+					}
+				}
+				else if (!waiting && x == dest_x) {
+					to_bakery = false, from_bakery = true;
+					right = true, up = false, down = false, left = false;
+				}
+			}
+			else if (from_bakery) {
+				// move towards y0,x0
+				// std::cout << "moving from bakery" << std::endl;
+				if (right && x == lx) {
+					right = false, down = true, up = false, left = false;
+				}
+				else if (down && y == y0) {
+					down = false, right = true, up = false, left = false;
+				}
+				else if (right && x == x0) {
+					left = false, up = false, down = false, right = false;
+					to_bakery = false, from_bakery = false;
+					child_to_bakery = 0;
+				}
+			}
+
+			// update location if one of the movement flags is set
+			if (up)
+				y = y - 1;
+			else if (down)
+				y = y + 1;
+			else if (right)
+				x = x + 1;
+			else if (left)
+				x = x - 1;
 		}
+
 		child.draw(y, x);
 		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay*2);
 		cv.wait_until(lock, timeout, [&](){return go == true;});
@@ -961,11 +1022,12 @@ int main(int argc, char** argv)
 	std::thread mx(fill_mixer, bakery_y+16, bakery_x+22);
 	std::thread bt(draw_batter, bakery_y+9, bakery_x+24);
 	std::thread ck(add_cakes, cupcakes, bakery_y+5, bakery_x+30);
-	std::thread ch1(move_children, child, bakery_y+4,  bakery_x+80);
-	std::thread ch2(move_children, DisplayObject(child), bakery_y+8,  bakery_x+50);
-	std::thread ch3(move_children, DisplayObject(child), bakery_y+12, bakery_x+50);
-	std::thread ch4(move_children, DisplayObject(child), bakery_y+16, bakery_x+50);
-	std::thread ch5(move_children, DisplayObject(child), bakery_y+20, bakery_x+50);
+	std::thread ch1(move_children, DisplayObject(child), bakery_y+9,  bakery_x+60, 1);
+	std::thread ch2(move_children, DisplayObject(child), bakery_y+12,  bakery_x+60, 2);
+	std::thread ch3(move_children, DisplayObject(child), bakery_y+15, bakery_x+60, 3);
+	std::thread ch4(move_children, DisplayObject(child), bakery_y+18, bakery_x+60, 4);
+	std::thread ch5(move_children, DisplayObject(child), bakery_y+21, bakery_x+60, 5);
+	// child.draw(bakery_y+4, bakery_x+80);
 
 	// c2.join();
 	c1.join();
