@@ -18,13 +18,13 @@ public:
 	void draw(int, int);
 	static void redisplay();
 
+	void erase();
+
 private:
 	static const int LINELEN = 140;
 	static const int NLINES = 60;
 	static const int NLAYERS = 4;
 
 	static char theFarm[NLINES][LINELEN][NLAYERS];
-
-	void erase();
 	void draw(int, int, const char);
 };

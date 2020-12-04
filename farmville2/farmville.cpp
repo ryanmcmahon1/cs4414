@@ -228,7 +228,7 @@ std::atomic<int> flour_produced, flour_used;
 std::atomic<int> cakes_produced, cakes_sold;
 
 int wait = 1000000;
-int delay = 500;
+int delay = 80;
 
 // Position of bakery, so that we can keep track of where to put items inside the bakery
 int bakery_y = 35;
@@ -249,9 +249,6 @@ std::atomic<bool> go(false); // set to 1 while we are redisplaying
 std::atomic<bool> int_full(false); // set to true if a truck is in the intersection
 
 // // control number of eggs in each of the three nests
-// std::atomic<int> eggs_n1(0);
-// std::atomic<int> eggs_n2(0);
-// std::atomic<int> eggs_n3(0);
 std::atomic<int> nest1_eggs(0);
 std::atomic<int> nest2_eggs(0);
 std::atomic<int> eggs_collected(0);
@@ -259,15 +256,27 @@ std::atomic<int> butter_collected(0);
 
 // control access to nests and the lanes between them (true if occupied)
 std::atomic<bool> l1_full(true);
-std::atomic<bool> l2_full(false);
+std::atomic<bool> l2_full(true);
 std::atomic<bool> n1_full(false);
 std::atomic<bool> n2_full(false);
 
 // number of each container currently on conveyor belt
-// std::atomic<int> conveyor_eggs(0);
-// std::atomic<int> conveyor_butter(0);
-// std::atomic<int> conveyor_sugar(0);
-// std::atomic<int> conveyor_flour(0);
+std::atomic<int> conveyor_eggs(0);
+std::atomic<int> conveyor_butter(0);
+std::atomic<int> conveyor_sugar(0);
+std::atomic<int> conveyor_flour(0);
+
+// number of each container currently in mixer
+std::atomic<int> mixer_eggs(0);
+std::atomic<int> mixer_butter(0);
+std::atomic<int> mixer_sugar(0);
+std::atomic<int> mixer_flour(0);
+
+std::atomic<bool> mixer_full(false);
+std::atomic<bool> baking(false); // true if we are currently baking a cake
+
+// number of cakes currently on display
+std::atomic<int> num_cakes(0);
 
 void redisplay()
 {
@@ -277,10 +286,10 @@ void redisplay()
 			std::lock_guard<std::mutex> lock(cv_mutex);
 			DisplayObject::redisplay();
 			std::cout << "Eggs: Laid=" << eggs_laid << ", Collected=" << eggs_collected << ", Used=" << eggs_used << 
-							" Butter: Collected=" << butter_collected << " Sold=" << butter_produced << ", Used=" << butter_used <<
-							" Sugar: Sold=" << sugar_produced << ", Used=" << sugar_used <<
-							" Flour: Sold=" << flour_produced << ", Used=" << flour_used << 
-							" Cakes: Baked=" << cakes_produced << ", Sold=" << cakes_sold << std::endl;
+							" || Butter: Collected=" << butter_collected << " Sold=" << butter_produced << ", Used=" << butter_used <<
+							" || Sugar: Sold=" << sugar_produced << ", Used=" << sugar_used <<
+							" || Flour: Sold=" << flour_produced << ", Used=" << flour_used << 
+							" || Cakes: Baked=" << cakes_produced << ", Sold=" << cakes_sold << " -end"<< std::endl;
 			// std::cout << "n1_full=" << n1_full << ", n2_full=" << n2_full << ", l1_full=" << l1_full << ", l2_full=" << l2_full << std::endl;
 			go = true;
 		}
@@ -678,6 +687,8 @@ void move_truckv(DisplayObject truck, int ymin, int ymax, int xmin, int xmax)
 				down = true;
 				left = false;
 				right = false;
+				flour_produced += 3;
+				sugar_produced += 3;
 				num_flour = 3;
 				num_sugar = 3;
 			}
@@ -703,8 +714,14 @@ void move_truckv(DisplayObject truck, int ymin, int ymax, int xmin, int xmax)
 							up = false;
 						}
 						else {
-							num_flour--;
-							num_sugar--;
+							if (conveyor_flour < 2) {
+								num_flour--;
+								conveyor_flour++;
+							}
+							if (conveyor_sugar < 2) {
+								num_sugar--;
+								conveyor_sugar++;
+							}
 							left = false, right = false, down = false, up = false;
 						}
 					}
@@ -763,6 +780,8 @@ void move_truckh(DisplayObject truck, int ymin, int ymax, int xmin, int xmax)
 					butter_collected -= 3;
 					num_crates = 3;
 					num_butter = 3;
+					// keep track of how much butter sold by farmer
+					butter_produced += 3;
 					right = true;
 					left = false;
 				}
@@ -777,8 +796,15 @@ void move_truckh(DisplayObject truck, int ymin, int ymax, int xmin, int xmax)
 					left = true;
 				}
 				else {
-					num_crates--;
-					num_butter--;
+					if (conveyor_eggs < 2) {
+						num_crates--;
+						conveyor_eggs++;
+					}
+					if (conveyor_butter < 2) {
+						num_butter--;
+						conveyor_butter++;
+					}
+
 					right = false, left = false;
 				}
 			}
@@ -824,13 +850,9 @@ void fill_nest(DisplayObject nest[4], int y, int x, int num) {
 }
 
 void add_cakes(DisplayObject cakes[7], int y, int x) {
-	int k = 0, c = 0;
 	while (true) {
-		if (k % 2 == 0)
-			c++;
 		std::unique_lock<std::mutex> lock(cv_mutex);
-		cakes[c % 7].draw(y, x);
-		k++;
+		cakes[num_cakes].draw(y, x);
 		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay*2);
 		cv.wait_until(lock, timeout, [&](){return go == true;});
 	}
@@ -840,40 +862,98 @@ void add_cakes(DisplayObject cakes[7], int y, int x) {
 void fill_mixer(int y, int x) {
 	std::string mixer_string;
 	DisplayObject mixer_contents(mixer_string, 3);
-	mixer_string = "";
-	int mix_count = 0;
+	mixer_string = "    #   ";
+	// e = 0, b = 3, f = 6, s = 7
+	// int mix_count = 0;
 	while (true) {
 		std::unique_lock<std::mutex> lock(cv_mutex);
-		go = false;
-		if (mix_count <= 1)
-			mixer_string = "";
-		else if (mix_count == 7)
-			mixer_string += "E   ";
-		else if (mix_count == 10)
-			mixer_string += "B";
-		else if (mix_count == 19)
-			mixer_string += "# F";
-		else if (mix_count == 27)
-			mixer_string += "S";
+
+		// only move items from conveyor to mixer if we are not baking
+		if (!baking) {
+			if (mixer_eggs < 2 && conveyor_eggs > 0) {
+				conveyor_eggs--;
+				mixer_eggs++;
+			}
+			if (mixer_butter < 2 && conveyor_butter > 0) {
+				conveyor_butter--;
+				mixer_butter++;
+			}
+			if (mixer_flour < 2 && conveyor_flour > 0) {
+				conveyor_flour--;
+				mixer_flour++;
+			}
+			if (mixer_sugar < 2 && conveyor_sugar > 0) {
+				conveyor_sugar--;
+				mixer_sugar++;
+			}
+		}
+		
+		// update number of each item and mixer, even if we are baking
+		if (mixer_eggs == 1)
+			mixer_string[0] = 'e';
+		else if (mixer_eggs == 2)
+			mixer_string[0] = 'E';
+
+		if (mixer_butter == 1)
+			mixer_string[3] = 'b';
+		else if (mixer_butter == 2)
+			mixer_string[3] = 'B';
+
+		if (mixer_flour == 1)
+			mixer_string[6] = 'f';
+		else if (mixer_flour == 2)
+			mixer_string[6] = 'F';
+
+		if (mixer_sugar == 1)
+			mixer_string[7] = 's';
+		else if (mixer_sugar == 2)
+			mixer_string[7] = 'S';
+
 		mixer_contents.update_contents(mixer_string);
 		mixer_contents.draw(y, x);
-		if (mix_count <= 30)	
-			mix_count++;
 		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay*2);
 		cv.wait_until(lock, timeout, [&](){return go == true;});
 	}
 }
 
 void draw_batter(int y, int x) {
-	int stop_for = 28;
-	int batter_count = 0;
+	int baking_time = 0;
 	while (true) {
 		std::unique_lock<std::mutex> lock(cv_mutex);
-		go = false;
-		if (batter_count >= stop_for)
-			batter.draw(y, x);
-		else
-			batter_count++;
+		if (mixer_eggs == 2 && mixer_butter == 2 && mixer_flour == 2 && mixer_sugar == 2) {
+			baking = true;
+			mixer_eggs--, mixer_butter--, mixer_flour--, mixer_sugar--;
+			eggs_used++, butter_used++, flour_used++, sugar_used++;
+			baking_time = 6;
+		}
+		else if (baking) {
+			if (baking_time > 0) {
+				batter.draw(y,x);
+				baking_time--;
+			}
+			else {
+				if (mixer_eggs == 1 && mixer_butter == 1 && mixer_flour == 1 && mixer_sugar == 1) {
+					if (num_cakes <= 3) {
+						mixer_eggs--, mixer_butter--, mixer_flour--, mixer_sugar--;
+						eggs_used++, butter_used++, flour_used++, sugar_used++;
+						batter.erase();
+						cakes_produced += 3;
+						num_cakes += 3;
+						baking_time = 6;	
+					}
+				}
+				else if (mixer_eggs == 0 && mixer_butter == 0 && mixer_flour == 0 && mixer_sugar == 0) {
+					// batter.erase();
+					if (num_cakes <= 3) {
+						num_cakes += 3;
+						batter.erase();
+						cakes_produced += 3;
+						baking = false;
+					}
+					// baking = false;
+				}
+			}
+		}
 		auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(delay*2);
 		cv.wait_until(lock, timeout, [&](){return go == true;});
 	}
@@ -924,7 +1004,7 @@ void move_children(DisplayObject child, int y0, int x0, int num)
 				// std::cout << "setting to_bakery to true" << y << std::endl;
 				to_bakery = true, from_bakery = false;
 				left = true, right = false, down = false, up = false;
-				cakes = 6;				
+				cakes = rand() % 6 + 1;				
 			}
 
 			else if (to_bakery) {
@@ -944,7 +1024,18 @@ void move_children(DisplayObject child, int y0, int x0, int num)
 					waiting = true;
 				}
 				else if (waiting && x == dest_x) {
-					cakes--;
+					// more cakes in display than how many this child wants
+					if (num_cakes >= cakes) {
+						num_cakes -= cakes;
+						cakes_sold += cakes;
+						cakes = 0;
+					}
+					else {
+						cakes_sold += num_cakes;
+						cakes -= num_cakes;
+						num_cakes = 0;
+					}
+					// if the number of cakes this child still wants is 0, we are done waiting
 					if (cakes <= 0)  {
 						waiting = false;
 					}
